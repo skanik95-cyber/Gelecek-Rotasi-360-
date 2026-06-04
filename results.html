@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Sonuçlarım</title>
+</head>
+<body data-role="student">
+  <h2>Geçmiş Sonuçlarım</h2>
+  <ul id="my-results"></ul>
+  <p><a href="student-dashboard.html">Geri</a></p>
+
+  <script src="storage.js"></script>
+  <script src="auth.js"></script>
+  <script src="router.js"></script>
+  <script>
+    const u = storage.getCurrentUser();
+    if (!u || u.role !== 'student') { window.location.href='login.html'; }
+    const list = document.getElementById('my-results');
+    const results = auth.getStudentResults(u.id);
+    if (results.length === 0) {
+      list.innerHTML = '<li>Henüz sonuç yok.</li>';
+    } else {
+      results.forEach(r => {
+        const li = document.createElement('li');
+        li.textContent = `${r.testName} — ${r.score} — ${new Date(r.date).toLocaleString()}`;
+        list.appendChild(li);
+      });
+    }
+  </script>
+</body>
+</html>

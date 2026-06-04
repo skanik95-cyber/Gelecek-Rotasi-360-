@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Test Sayfası</title>
+</head>
+<body data-role="student">
+  <h2>Basit Test Kaydı</h2>
+  <form id="testForm">
+    <label>Test Adı: <input id="testName" required></label><br>
+    <label>Puan (0-100): <input id="score" type="number" min="0" max="100" required></label><br>
+    <button type="submit">Kaydet</button>
+  </form>
+  <p id="msg"></p>
+  <p><a href="student-dashboard.html">Geri</a></p>
+
+  <script src="storage.js"></script>
+  <script src="auth.js"></script>
+  <script src="router.js"></script>
+  <script>
+    const form = document.getElementById('testForm');
+    form.addEventListener('submit', (e)=>{
+      e.preventDefault();
+      const u = storage.getCurrentUser();
+      if(!u || u.role !== 'student') { window.location.href='login.html'; return; }
+      const name = document.getElementById('testName').value.trim();
+      const score = document.getElementById('score').value;
+      const res = auth.saveTestResult(u.id, name, score);
+      const msg = document.getElementById('msg');
+      if (res.ok) {
+        msg.textContent = 'Sonuç kaydedildi.';
+        setTimeout(()=> window.location.href='results.html', 800);
+      } else msg.textContent = res.message;
+    });
+  </script>
+</body>
+</html>

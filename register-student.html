@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Öğrenci Kayıt</title>
+</head>
+<body>
+  <h2>Öğrenci Kayıt</h2>
+  <form id="regForm">
+    <label>İsim: <input id="firstName" required></label><br>
+    <label>Soyisim: <input id="lastName" required></label><br>
+    <label>Şifre: <input id="password" type="password" required></label><br>
+    <button type="submit">Kayıt Ol</button>
+  </form>
+  <p id="msg"></p>
+  <p><a href="index.html">Geri</a></p>
+
+  <script src="storage.js"></script>
+  <script src="auth.js"></script>
+  <script>
+    document.getElementById('regForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const f = document.getElementById('firstName').value.trim();
+      const l = document.getElementById('lastName').value.trim();
+      const p = document.getElementById('password').value;
+      const res = auth.createStudent(f,l,p);
+      const msg = document.getElementById('msg');
+      if (res.ok) {
+        msg.textContent = `Kayıt başarılı. Giriş için kullanıcı adınız: ${res.username}`;
+        setTimeout(()=> window.location.href='login.html', 2000);
+      } else {
+        msg.textContent = res.message;
+      }
+    });
+  </script>
+</body>
+</html>

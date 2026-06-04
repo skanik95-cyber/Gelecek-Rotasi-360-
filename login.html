@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Giriş</title>
+</head>
+<body>
+  <h2>Giriş Yap</h2>
+  <form id="loginForm">
+    <label>Kullanıcı Adı: <input id="username" required></label><br>
+    <label>Şifre: <input id="password" type="password" required></label><br>
+    <button type="submit">Giriş</button>
+  </form>
+  <p id="msg"></p>
+  <p><a href="index.html">Geri</a></p>
+
+  <script src="storage.js"></script>
+  <script src="auth.js"></script>
+  <script>
+    document.getElementById('loginForm').addEventListener('submit', (e)=>{
+      e.preventDefault();
+      const u = document.getElementById('username').value.trim();
+      const p = document.getElementById('password').value;
+      const res = auth.login(u,p);
+      const msg = document.getElementById('msg');
+      if (res.ok) {
+        msg.textContent = res.message;
+        // role'a göre yönlendir
+        setTimeout(()=>{
+          if (res.role === 'advisor') window.location.href='advisor-dashboard.html';
+          else window.location.href='student-dashboard.html';
+        }, 500);
+      } else {
+        msg.textContent = res.message;
+      }
+    });
+  </script>
+</body>
+</html>

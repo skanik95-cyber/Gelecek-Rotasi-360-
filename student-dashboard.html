@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Öğrenci Paneli</title>
+</head>
+<body data-role="student">
+  <h2>Öğrenci Paneli</h2>
+  <p>Hoşgeldiniz, <span id="user-name"></span></p>
+  <p>
+    <a href="test.html">Test Çöz</a> |
+    <a href="results.html">Geçmiş Sonuçlarım</a> |
+    <button id="logout-btn">Çıkış</button>
+  </p>
+
+  <script src="storage.js"></script>
+  <script src="auth.js"></script>
+  <script src="router.js"></script>
+  <script>
+    const u = storage.getCurrentUser();
+    if (u) document.getElementById('user-name').textContent = u.username;
+  </script>
+</body>
+</html>

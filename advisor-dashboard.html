@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Danışman Paneli</title>
+</head>
+<body data-role="advisor">
+  <h2>Danışman Paneli</h2>
+  <p>Hoşgeldiniz, <span id="user-name"></span></p>
+  <p>
+    <button id="logout-btn">Çıkış</button>
+  </p>
+
+  <h3>Tüm Öğrenciler</h3>
+  <ul id="student-list"></ul>
+
+  <h3>Tüm Sonuçlar</h3>
+  <ul id="results-list"></ul>
+
+  <script src="storage.js"></script>
+  <script src="auth.js"></script>
+  <script src="router.js"></script>
+  <script>
+    const u = storage.getCurrentUser();
+    if (u) document.getElementById('user-name').textContent = u.username;
+
+    const students = storage.getStudents();
+    const sl = document.getElementById('student-list');
+    students.forEach(s => {
+      const li = document.createElement('li');
+      li.textContent = `${s.firstName} ${s.lastName} (${s.username})`;
+      sl.appendChild(li);
+    });
+
+    const results = auth.getAllResultsForAdvisor();
+    const rl = document.getElementById('results-list');
+    results.forEach(r => {
+      const student = students.find(s=>s.id===r.studentId) || { username: r.studentId };
+      const li = document.createElement('li');
+      li.textContent = `${student.username} — ${r.testName} — ${r.score} — ${new Date(r.date).toLocaleString()}`;
+      rl.appendChild(li);
+    });
+  </script>
+</body>
+</html>
