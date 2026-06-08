@@ -6,7 +6,7 @@
     <title>Gelecek Rotası - ABKÖ Meslek Keşif Platformu</title>
     
     <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHJ4PSI4IiBmaWxsPSIjMDA3QkZGIi8+PHBhdGggZD0iTTEwIDEySDE2TDE4IDE4SDE0TDEwIDEyWiIgZmlsbD0id2hpdGUiLz48L3N2Zz4=" >
+    <link rel="icon" type="image/x-icon" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iMTYiIGZpbGw9IiNGRkQ3MDAiLz4KPHN2ZyB4PSI2IiB5PSI2IiB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHZpZXdCb3g9IjAgMCAyMCAyMCIgZmlsbD0ibm9uZSI+CjxwYXRoIGQ9Ik0xMCAyTDEwLjkgOC4yNkwxNiA5TDEyLjUgMTQuMjZMMTMuNSAyMEwxMCAxN0w2LjUgMjBMNy41IDE0LjI2TDQgOUw5LjUgOC4yNkwxMCAyWiIgZmlsbD0iIzRCMDA4MiIvPgo8L3N2Zz4KPC9zdmc+Cg==">
     
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -26,183 +26,18 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
     <script src="firebaseConfig.js"></script>
+    <!-- Local storage based auth (fallback when Firebase unavailable) -->
+    <script src="storage.js"></script>
+    <script src="auth.js"></script>
     <!-- Custom CSS -->
     <link rel="stylesheet" href="style_new.css">
-    
-    <!-- Local Authentication & Storage System (Embedded) -->
-    <script>
-        // Local Storage Management System
-        const storage = {
-            getCurrentUser: function() {
-                const user = localStorage.getItem('currentUser');
-                return user ? JSON.parse(user) : null;
-            },
-            setCurrentUser: function(user) {
-                localStorage.setItem('currentUser', JSON.stringify(user));
-            },
-            clearCurrentUser: function() {
-                localStorage.removeItem('currentUser');
-            },
-            getAllUsers: function() {
-                const users = localStorage.getItem('allUsers');
-                return users ? JSON.parse(users) : [];
-            },
-            saveUser: function(user) {
-                const users = this.getAllUsers();
-                const index = users.findIndex(u => u.id === user.id);
-                if (index >= 0) {
-                    users[index] = user;
-                } else {
-                    users.push(user);
-                }
-                localStorage.setItem('allUsers', JSON.stringify(users));
-            },
-            getStudentResults: function(studentId) {
-                const results = localStorage.getItem(`results_${studentId}`);
-                return results ? JSON.parse(results) : [];
-            },
-            saveStudentResults: function(studentId, results) {
-                const allResults = this.getStudentResults(studentId);
-                allResults.push({
-                    ...results,
-                    timestamp: new Date().toISOString()
-                });
-                localStorage.setItem(`results_${studentId}`, JSON.stringify(allResults));
-            },
-            getAdvisorStudents: function(advisorId) {
-                const students = localStorage.getItem(`advisor_students_${advisorId}`);
-                return students ? JSON.parse(students) : [];
-            },
-            assignStudentToAdvisor: function(advisorId, studentId) {
-                const students = this.getAdvisorStudents(advisorId);
-                if (!students.includes(studentId)) {
-                    students.push(studentId);
-                    localStorage.setItem(`advisor_students_${advisorId}`, JSON.stringify(students));
-                }
-            }
-        };
-        window.storage = storage;
-
-        // Local Authentication System
-        const auth = {
-            generateId: function() {
-                return 'user_' + Math.random().toString(36).substr(2, 9);
-            },
-            hashPassword: function(password) {
-                let hash = 0;
-                for (let i = 0; i < password.length; i++) {
-                    const char = password.charCodeAt(i);
-                    hash = ((hash << 5) - hash) + char;
-                    hash = hash & hash;
-                }
-                return Math.abs(hash).toString(16);
-            },
-            createStudent: function(firstName, lastName, password) {
-                try {
-                    const username = firstName + (lastName ? '.' + lastName : '');
-                    const existingUsers = storage.getAllUsers();
-                    if (existingUsers.find(u => u.username.toLowerCase() === username.toLowerCase())) {
-                        return { ok: false, message: 'Bu kullanıcı adı zaten kullanılıyor.' };
-                    }
-                    const student = {
-                        id: this.generateId(),
-                        username: username,
-                        firstName: firstName,
-                        lastName: lastName,
-                        password: this.hashPassword(password),
-                        role: 'student',
-                        createdAt: new Date().toISOString()
-                    };
-                    storage.saveUser(student);
-                    storage.setCurrentUser({ id: student.id, role: 'student', username: student.username });
-                    return { ok: true, message: 'Öğrenci hesabı oluşturuldu.', id: student.id, username: student.username };
-                } catch (error) {
-                    console.error('Student creation error:', error);
-                    return { ok: false, message: 'Hesap oluşturma sırasında hata oluştu.' };
-                }
-            },
-            createAdvisor: function(firstName, lastName, password) {
-                try {
-                    const username = 'advisor-' + firstName + (lastName ? '.' + lastName : '');
-                    const existingUsers = storage.getAllUsers();
-                    if (existingUsers.find(u => u.username.toLowerCase() === username.toLowerCase())) {
-                        return { ok: false, message: 'Bu danışman adı zaten kullanılıyor.' };
-                    }
-                    const advisor = {
-                        id: this.generateId(),
-                        username: username,
-                        firstName: firstName,
-                        lastName: lastName,
-                        password: this.hashPassword(password),
-                        role: 'advisor',
-                        createdAt: new Date().toISOString()
-                    };
-                    storage.saveUser(advisor);
-                    storage.setCurrentUser({ id: advisor.id, role: 'advisor', username: advisor.username });
-                    return { ok: true, message: 'Danışman hesabı oluşturuldu.', id: advisor.id, username: advisor.username };
-                } catch (error) {
-                    console.error('Advisor creation error:', error);
-                    return { ok: false, message: 'Danışman hesabı oluşturma sırasında hata oluştu.' };
-                }
-            },
-            login: function(username, password) {
-                try {
-                    const users = storage.getAllUsers();
-                    const user = users.find(u => u.username.toLowerCase() === username.toLowerCase());
-                    if (!user) {
-                        return { ok: false, message: 'Kullanıcı adı veya şifre yanlış.' };
-                    }
-                    const hashedPassword = this.hashPassword(password);
-                    if (user.password !== hashedPassword) {
-                        return { ok: false, message: 'Kullanıcı adı veya şifre yanlış.' };
-                    }
-                    const currentUser = {
-                        id: user.id,
-                        username: user.username,
-                        firstName: user.firstName,
-                        lastName: user.lastName,
-                        role: user.role
-                    };
-                    storage.setCurrentUser(currentUser);
-                    return { ok: true, message: 'Başarıyla giriş yaptınız.', role: user.role };
-                } catch (error) {
-                    console.error('Login error:', error);
-                    return { ok: false, message: 'Giriş yapılamadı.' };
-                }
-            },
-            logout: function() {
-                storage.clearCurrentUser();
-                return { ok: true, message: 'Başarıyla çıkış yaptınız.' };
-            },
-            isAuthenticated: function() {
-                return this.getCurrentUser() !== null;
-            },
-            getCurrentUser: function() {
-                return storage.getCurrentUser();
-            },
-            getUserById: function(userId) {
-                const users = storage.getAllUsers();
-                return users.find(u => u.id === userId);
-            },
-            getAllStudents: function() {
-                const users = storage.getAllUsers();
-                return users.filter(u => u.role === 'student');
-            },
-            getAllAdvisors: function() {
-                const users = storage.getAllUsers();
-                return users.filter(u => u.role === 'advisor');
-            }
-        };
-        window.auth = auth;
-        console.log('✅ Auth system loaded');
-    </script>
 </head>
 <body>
     <!-- Navigation -->
     <nav class="navbar navbar-expand-lg fixed-top">
         <div class="container">
             <a class="navbar-brand" href="#" data-page="home">
-                <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMTgiIHN0cm9rZT0iIzAwN0JGRiIgc3Ryb2tlLXdpZHRoPSIyIiBmaWxsPSJub25lIi8+CjxwYXRoIGQ9Ik0yMCA2VjIwTTIwIDIwTDMwIDI0IiBzdHJva2U9IiMwMDdCRkYiIHN0cm9rZS13aWR0aD0iMi4yIiBmaWxsPSJub25lIiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4KPC9zdmc+" alt="Logo" style="height: 40px;">
+                <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiNGRkQ3MDAiLz4KPHN2ZyB4PSI4IiB5PSI4IiB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSI+CjxwYXRoIGQ9Ik0xMiAyTDEzLjA5IDguMjZMMjAgOUwxNC43NCAxNC4yNkwxNiAyMkwxMiAxOEw4IDIyTDkuMjYgMTQuMjZMNCA5TDEwLjkxIDguMjZMMTIgMloiIGZpbGw9IiM0QjAwODIiLz4KPC9zdmc+Cjwvc3ZnPgo=" alt="Gelecek Rotası" class="me-2">
                 <span class="brand-text">Gelecek Rotası</span>
             </a>
             
@@ -218,13 +53,13 @@
                         <i class="fas fa-user-circle me-2"></i>
                         <span id="nav-username"></span>
                     </span>
-                    <button class="btn btn-sm btn-outline-light me-2" id="nav-login-btn" type="button" onclick="showPage('auth')">
+                    <button class="btn btn-sm btn-outline-light me-2" id="nav-login-btn" type="button">
                         Giriş
                     </button>
-                    <button class="btn btn-sm btn-warning me-2" id="nav-register-btn" type="button" onclick="showPage('auth')">
+                    <button class="btn btn-sm btn-warning me-2" id="nav-register-btn" type="button">
                         Kayıt Ol
                     </button>
-                    <button class="btn btn-sm btn-outline-light d-none" id="nav-logout-btn" type="button" onclick="logoutUser()">
+                    <button class="btn btn-sm btn-outline-light d-none" id="nav-logout-btn" type="button">
                         Çıkış
                     </button>
                 </div>
@@ -245,7 +80,7 @@
                             <p class="hero-subtitle">
                                 Kendi yeteneklerine ve ilgi alanlarına en uygun meslekleri keşfetmeye hazır mısın?
                             </p>
-                            <button class="btn btn-primary btn-hero" onclick="showPage('action-select')">
+                            <button class="btn btn-primary btn-hero" data-page="action-select">
                                 <i class="fas fa-play me-2"></i>Hadi Başlayalım!
                             </button>
                         </div>
@@ -272,14 +107,14 @@
                         <h1 class="page-title">NE YAPMAK İSTERSİN?</h1>
                         
                         <div class="action-buttons">
-                            <div class="action-card" onclick="showPage('test')">
+                            <div class="action-card" data-page="test">
                                 <div class="action-icon">
                                     <i class="fas fa-clipboard-list"></i>
                                 </div>
                                 <h3>MESLEK TESTİNİ BAŞLAT</h3>
                             </div>
                             
-                            <div class="action-card" onclick="showPage('careers')">
+                            <div class="action-card" data-page="careers">
                                 <div class="action-icon">
                                     <i class="fas fa-vr-cardboard"></i>
                                 </div>
@@ -351,7 +186,7 @@
                     <div class="col-12">
                         <div class="results-header text-center mb-5">
                             <h1 class="page-title">TEST SONUÇLARINA GÖRE SANA UYGUN MESLEKLER</h1>
-                            <button class="btn btn-primary btn-lg mt-3" onclick="showPage('vr-explore')">
+                            <button class="btn btn-primary btn-lg mt-3" data-page="vr-explore">
                                 Bu meslekleri VR ile keşfet
                             </button>
                         </div>
@@ -377,10 +212,10 @@
                         </div>
                         
                         <div class="text-center mt-4">
-                            <button class="btn btn-outline-light me-3" onclick="showPage('test')">
+                            <button class="btn btn-outline-light me-3" data-page="test">
                                 <i class="fas fa-redo me-2"></i>Testi Tekrar Çöz
                             </button>
-                            <button class="btn btn-outline-light" onclick="showPage('home')">
+                            <button class="btn btn-outline-light" data-page="home">
                                 <i class="fas fa-home me-2"></i>Ana Sayfaya Dön
                             </button>
                         </div>
@@ -402,10 +237,10 @@
                         </div>
                         
                         <div class="mt-4">
-                            <button class="btn btn-outline-light me-3" onclick="showPage('results')">
+                            <button class="btn btn-outline-light me-3" data-page="results">
                                 <i class="fas fa-arrow-left me-2"></i>Sonuçlara Dön
                             </button>
-                            <button class="btn btn-outline-light" onclick="showPage('home')">
+                            <button class="btn btn-outline-light" data-page="home">
                                 <i class="fas fa-home me-2"></i>Ana Sayfaya Dön
                             </button>
                         </div>
@@ -436,10 +271,10 @@
                         </div>
                         
                         <div class="text-center mt-4">
-                            <button class="btn btn-warning me-3" onclick="showPage('vr-explore')">
+                            <button class="btn btn-warning me-3" data-page="vr-explore">
                                 <i class="fas fa-arrow-left me-2"></i>VR Ana Sayfaya Dön
                             </button>
-                            <button class="btn btn-warning" onclick="showPage('careers')">
+                            <button class="btn btn-warning" data-page="careers">
                                 <i class="fas fa-briefcase me-2"></i>Diğer Meslekleri Gör
                             </button>
                         </div>
@@ -463,7 +298,7 @@
                         </div>
                         
                         <div class="text-center mt-4">
-                            <button class="btn btn-outline-light" onclick="showPage('home')">
+                            <button class="btn btn-outline-light" data-page="home">
                                 <i class="fas fa-home me-2"></i>Ana Sayfaya Dön
                             </button>
                         </div>
@@ -480,7 +315,7 @@
                         <div class="about-content">
                             <h1 class="page-title">HAKKINDA</h1>
                             <p class="about-text">
-                                Gelecek Rotası, öğrencilerin ilgi, yetenek ve değerlerine uygun meslekleri keşfetmelerine yardımcı olmak için tasarlanmış bir dijital rehberlik platformu.
+                                Gelecek Rotası, öğrencilerin ilgi, yetenek ve değerlerine uygun meslekleri keşfetmelerine yardımcı olmak için tasarlanmış bir dijital rehberlik platformudur. Kullanıcılar, kişisel özelliklerini belirlemek amacıyla bilimsel testler çözer ve bu testler sonucunda kendilerine uygun meslek önerileri alırlar. Ayrıca önerilen mesleklerin sanal gerçeklik (VR) ortamında hazırlanan deneyimlerle simülasyonlarıyla mesleklerin işleyişini yakından görebilirler.
                             </p>
                             <p class="about-text">
                                 Bu sayede öğrenciler, meslekleri gerçekçi bir ortamda tanıma fırsatı elde ederek bilgi sahibi olurlar.
@@ -510,13 +345,11 @@
                                 <p class="page-subtitle">Özel içeriklere erişmek için giriş yapın veya kayıt olun.</p>
                             </div>
                             <div class="auth-tabs">
-                                <button class="auth-tab active" data-auth-tab="login" type="button" onclick="showAuthTab('login')">Giriş Yap</button>
-                                <button class="auth-tab" data-auth-tab="register" type="button" onclick="showAuthTab('register')">Kayıt Ol</button>
+                                <button class="auth-tab active" data-auth-tab="login" type="button">Giriş Yap</button>
+                                <button class="auth-tab" data-auth-tab="register" type="button">Kayıt Ol</button>
                             </div>
                             <div class="auth-message" id="auth-message" role="status" aria-live="polite"></div>
-                            
-                            <!-- Login Form -->
-                            <form id="login-form" class="auth-form active" onsubmit="handleLogin(event)">
+                            <form id="login-form" class="auth-form active">
                                 <div class="mb-3">
                                     <label for="login-username" class="form-label">Kullanıcı Adı</label>
                                     <input type="text" class="form-control" id="login-username" required autocomplete="username">
@@ -527,9 +360,7 @@
                                 </div>
                                 <button class="btn btn-primary w-100" type="submit">Giriş Yap</button>
                             </form>
-                            
-                            <!-- Register Form -->
-                            <form id="register-form" class="auth-form" onsubmit="handleRegister(event)">
+                            <form id="register-form" class="auth-form">
                                 <div class="mb-3">
                                     <label for="register-username" class="form-label">Kullanıcı Adı</label>
                                     <input type="text" class="form-control" id="register-username" required autocomplete="username">
@@ -626,24 +457,389 @@
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
-    <!-- Authentication & Navigation Functions -->
+    <!-- Custom JavaScript -->
     <script>
-        // Sayfa gösterme fonksiyonu
-        function showPage(pageId) {
-            // Tüm page-section elemanlarını gizle
-            document.querySelectorAll('.page-section').forEach(section => {
-                section.classList.remove('active');
-            });
+        // Career Data (embedded to avoid CORS issues)
+        const careerData = [
+            {
+                name: "Doktor",
+                description: "Hastalıkları teşhis ve tedavi eden, insan sağlığını koruyan tıp uzmanı.",
+                requirements: {
+                    "Fen Bilimleri İlgisi": 3.0,
+                    "Sayısal Yetenek": 3.0,
+                    "Göz-El Koordinasyonu": 3.0,
+                    "Sosyal Yardım İlgisi": 3.5
+                },
+                vr_image: "images/doctor_simulation.png",
+                hasVRVideo: true,
+                vrVideoFile: "https://youtu.be/jeBFt57HlZ4?si=6osOSkJ8gGwqF3dx",
+                vrDescription: "Ameliyathane ortamında 360° tıbbi müdahale deneyimi."
+            },
+            {
+                name: "Öğretmen",
+                description: "Öğrencilere bilgi ve beceri kazandıran, eğitim süreçlerini yöneten, pedagojik formasyona sahip kişi.",
+                requirements: {
+                    "Sözel Yetenek": 3.5,
+                    "Sosyal Bilimler İlgisi": 3.5,
+                    "Sosyal Yardım İlgisi": 2.5,
+                    "İkna İlgisi": 2.5
+                },
+                vr_image: "images/teacher_simulation.png",
+                hasVRVideo: true,
+                vrVideoFile: "https://youtu.be/CSY0pHI8h34?si=sRjAYqNdp7R_yJwx",
+                vrDescription: "Öğretmenlik mesleğini 360° VR video ile deneyimleyin."
+            },
+            {
+                name: "Veteriner",
+                description: "Hayvan sağlığını koruyan, tedavi eden klinik ve bakım uzmanı.",
+                requirements: {
+                    "Fen Bilimleri İlgisi": 4.0,
+                    "Sayısal Yetenek": 3.0,
+                    "Sosyal Yardım İlgisi": 3.5,
+                    "Ziraat İlgisi": 3.0
+                },
+                vr_image: "images/veterinary_clinic_simulation.png",
+                hasVRVideo: true,
+                vrVideoFile: "https://www.youtube.com/watch?v=EGDXVQwOGf0",
+                vrDescription: "360° hayvan muayenesi ve klinik deneyimi."
+            },
+            {
+                name: "Hemşire",
+                description: "Hastaların bakımını üstlenen, tedavi sürecini destekleyen sağlık profesyoneli.",
+                requirements: {
+                    "Sosyal Yardım İlgisi": 4.0,
+                    "Fen Bilimleri İlgisi": 3.0,
+                    "Göz-El Koordinasyonu": 3.0,
+                    "Sözel Yetenek": 2.5
+                },
+                vr_image: "images/nurse_simulation.png",
+                hasVRVideo: true,
+                vrVideoFile: "https://www.youtube.com/watch?v=4--pyJLhlB0",
+                vrDescription: "Hastane içinde 360° hemşirelik deneyimi."
+            },
+            {
+                name: "Bilgisayar Grafik Teknikeri",
+                description: "2D/3D grafikler, animasyonlar ve dijital tasarımlar oluşturan teknik uzman.",
+                requirements: {
+                    "Şekil-Uzay Yeteneği": 4.0,
+                    "Güzel Sanatlar İlgisi": 3.5,
+                    "Sayısal Yetenek": 3.0
+                },
+                vr_image: "images/graphic_technician_simulation.png",
+                hasVRVideo: true,
+                vrVideoFile: "https://www.youtube.com/watch?v=mw8y18D8GBM",
+                vrDescription: "360° dijital grafik atölyesi deneyimi."
+            },
+            {
+                name: "Astronot",
+                description: "Uzay görevlerinde araştırmalar yapan ve uzay araçlarını kullanan uzman.",
+                requirements: {
+                    "Fen Bilimleri İlgisi": 3.5,
+                    "Sayısal Yetenek": 3.5,
+                    "Şekil-Uzay Yeteneği": 4.0,
+                    "Mekanik İlgi": 3.5,
+                    "Göz-El Koordinasyonu": 3.5,
+                    "Yabancı Dil İlgisi": 3.0
+                },
+                vr_image: "images/astronaut_spacewalk_simulation.png",
+                hasVRVideo: true,
+                vrVideoFile: "https://www.youtube.com/watch?v=hEdzv7D4CbQ&t=5s",
+                vrDescription: "Uluslararası Uzay İstasyonu'nda 360° uzay yürüyüşü deneyimi."
+            },
+            {
+                name: "Bahçıvan",
+                description: "Bitki yetiştirme, bahçe bakımı ve peyzaj işleriyle ilgilenen uzman.",
+                requirements: {
+                    "Ziraat İlgisi": 4.0,
+                    "Göz-El Koordinasyonu": 2.5,
+                    "İş Ayrıntıları İlgisi": 2.5
+                },
+                vr_image: "images/gardener_simulation.png",
+                hasVRVideo: true,
+                vrVideoFile: "https://www.youtube.com/watch?v=7fcds-B8czg&t=21s",
+                vrDescription: "360° bitki yetiştirme ve bahçe bakım simülasyonu."
+            },
+            {
+                name: "Ressam",
+                description: "Duygularını ve düşüncelerini resim yoluyla ifade eden sanatçı.",
+                requirements: {
+                    "Güzel Sanatlar İlgisi": 4.0,
+                    "Şekil-Uzay Yeteneği": 3.5,
+                    "İş Ayrıntıları İlgisi": 3.0
+                },
+                vr_image: "images/painter_studio_simulation.png",
+                hasVRVideo: true,
+                vrVideoFile: "https://www.youtube.com/watch?v=pq2TwRNy_FU",
+                vrDescription: "360° sanat atölyesi deneyimi."
+            },
+            {
+                name: "İtfaiyeci",
+                description: "Yangınlara müdahale eden, arama-kurtarma yapan kamu güvenliği çalışanı.",
+                requirements: {
+                    "Göz-El Koordinasyonu": 4.0,
+                    "Mekanik İlgi": 3.0,
+                    "Şekil-Uzay Yeteneği": 3.0,
+                    "Sosyal Yardım İlgisi": 4.0
+                },
+                vr_image: "images/firefighter_rescue_simulation.png",
+                hasVRVideo: true,
+                vrVideoFile: "https://www.youtube.com/watch?v=W5njz511s1k",
+                vrDescription: "itfaiye istasyonunda 360° deneyim"
+            },
+            {
+                name: "Mekanik Mühendisi",
+                description: "Makine sistemlerini tasarlayan, analiz eden ve geliştiren mühendislik uzmanı.",
+                requirements: {
+                    "Sayısal Yetenek": 4.0,
+                    "Mekanik İlgi": 4.0,
+                    "Şekil-Uzay Yeteneği": 3.5,
+                    "Fen Bilimleri İlgisi": 3.5
+                },
+                vr_image: "images/mechanical_engineer_simulation.png",
+                hasVRVideo: true,
+                vrVideoFile: "https://youtu.be/npEv3YZLSMs?si=WgxbPI-jZpmNWH3N",
+                vrDescription: "360° makine tasarım ve mühendislik uygulama ortamı."
+            },
+            {
+                name: "Psikolojik Danışman",
+                description: "Bireylerin duygusal, sosyal ve akademik gelişimini destekleyen, rehberlik hizmeti sunan uzman.",
+                requirements: {
+                    "Sözel Yetenek": 3.5,
+                    "Sosyal Yardım İlgisi": 4.0,
+                    "Sosyal Bilimler İlgisi": 3.5,
+                    "İkna İlgisi": 3.0
+                },
+                vr_image: "",
+                hasVRVideo: false,
+                vrVideoFile: "",
+                vrDescription: ""
+            },
+            {
+                name: "Diş Hekimi",
+                description: "Ağız ve diş sağlığı sorunlarını teşhis eden ve tedavi eden sağlık uzmanı.",
+                requirements: {
+                    "Göz-El Koordinasyonu": 4.0,
+                    "Fen Bilimleri İlgisi": 3.5,
+                    "Sayısal Yetenek": 3.0,
+                    "İş Ayrıntıları İlgisi": 3.5
+                },
+                vr_image: "",
+                hasVRVideo: false,
+                vrVideoFile: "",
+                vrDescription: ""
+            },
+            {
+                name: "Polis Memuru",
+                description: "Toplum güvenliğini sağlayan, suçları önleyen ve hukuku uygulayan kamu görevlisi.",
+                requirements: {
+                    "Göz-El Koordinasyonu": 3.5,
+                    "Şekil-Uzay Yeteneği": 3.0,
+                    "Sosyal Yardım İlgisi": 3.5,
+                    "Mekanik İlgi": 2.5
+                },
+                vr_image: "",
+                hasVRVideo: false,
+                vrVideoFile: "",
+                vrDescription: ""
+            },
+            {
+                name: "Aşçı",
+                description: "Yemek hazırlayan, mutfak düzenini sağlayan ve yaratıcı tarifler geliştiren mutfak profesyoneli.",
+                requirements: {
+                    "Göz-El Koordinasyonu": 3.0,
+                    "İş Ayrıntıları İlgisi": 3.5,
+                    "Güzel Sanatlar İlgisi": 2.5,
+                    "Ziraat İlgisi": 2.0
+                },
+                vr_image: "",
+                hasVRVideo: false,
+                vrVideoFile: "",
+                vrDescription: ""
+            },
+            {
+                name: "Arkeolog",
+                description: "Geçmiş uygarlıkların izlerini araştıran, kazı çalışmaları yapan bilim insanı.",
+                requirements: {
+                    "Sosyal Bilimler İlgisi": 4.0,
+                    "Şekil-Uzay Yeteneği": 3.0,
+                    "İş Ayrıntıları İlgisi": 3.0,
+                    "Fen Bilimleri İlgisi": 2.5
+                },
+                vr_image: "",
+                hasVRVideo: false,
+                vrVideoFile: "",
+                vrDescription: ""
+            }
+        ];
+        
+        // Global variables
+        let questions = [];
+        let answers = {};
+        let currentQuestionIndex = 0;
+        let careers = [];
+        let currentSimulation = null;
+        let testResults = null;
+        
+        // VR Video Player variables
+        let vrScene, vrCamera, vrRenderer, vrControls;
+        let videoTexture, videoMaterial, sphereGeometry, sphereMesh;
+        let isPlaying = false;
+        let videoElement = null;
+
+        // ABKÖ Orijinal Yapısı - 4 Yetenek + 12 İlgi Alanı (Toplam 170 madde)
+        const academicCategories = [
+            // 4 YETENEK ALANI (44 madde)
+            { name: "Sözel Yetenek", type: "yetenek", madde_sayisi: 12, questions: [] },
+            { name: "Sayısal Yetenek", type: "yetenek", madde_sayisi: 10, questions: [] },
+            { name: "Şekil-Uzay Yeteneği", type: "yetenek", madde_sayisi: 12, questions: [] },
+            { name: "Göz-El Koordinasyonu", type: "yetenek", madde_sayisi: 10, questions: [] },
             
-            // İstenilen sayfayı göster
-            const page = document.getElementById(pageId + '-page');
-            if (page) {
-                page.classList.add('active');
-                window.scrollTo(0, 0);
+            // 12 İLGİ ALANI (126 madde)
+            { name: "Fen Bilimleri İlgisi", type: "ilgi", madde_sayisi: 12, questions: [] },
+            { name: "Sosyal Bilimler İlgisi", type: "ilgi", madde_sayisi: 11, questions: [] },
+            { name: "İkna İlgisi", type: "ilgi", madde_sayisi: 11, questions: [] },
+            { name: "Yabancı Dil İlgisi", type: "ilgi", madde_sayisi: 10, questions: [] },
+            { name: "Ticaret İlgisi", type: "ilgi", madde_sayisi: 10, questions: [] },
+            { name: "Ziraat İlgisi", type: "ilgi", madde_sayisi: 10, questions: [] },
+            { name: "Mekanik İlgi", type: "ilgi", madde_sayisi: 10, questions: [] },
+            { name: "İş Ayrıntıları İlgisi", type: "ilgi", madde_sayisi: 10, questions: [] },
+            { name: "Edebiyat İlgisi", type: "ilgi", madde_sayisi: 10, questions: [] },
+            { name: "Güzel Sanatlar İlgisi", type: "ilgi", madde_sayisi: 10, questions: [] },
+            { name: "Müzik İlgisi", type: "ilgi", madde_sayisi: 10, questions: [] },
+            { name: "Sosyal Yardım İlgisi", type: "ilgi", madde_sayisi: 10, questions: [] }
+        ];
+
+        
+            const protectedPages = new Set([
+            'action-select',
+            'test',
+            'results',
+            'vr-explore',
+            'vr-simulation',
+            'careers',
+            'advisor-dashboard'
+        ]);
+
+        let pendingPage = null;
+        let firebaseApp = null;
+        let auth = null;
+        let db = null;
+        let authUser = null;
+        let authReady = false;
+        let currentUserRole = 'student';
+
+        function normalizeUsername(username) {
+            return username.trim().toLowerCase();
+        }
+
+        function isAuthenticated() {
+            if (authUser) return true;
+            const u = window.storage?.getCurrentUser && window.storage.getCurrentUser();
+            return Boolean(u);
+        }
+
+        function getCurrentUser() {
+            if (authUser) return authUser.displayName || authUser.email || '';
+            const u = window.storage?.getCurrentUser && window.storage.getCurrentUser();
+            return u ? u.username : '';
+        }
+
+        function isAdvisor() {
+            if (authUser) return currentUserRole === 'advisor';
+            const u = window.storage?.getCurrentUser && window.storage.getCurrentUser();
+            return u && u.role === 'advisor';
+        }
+
+        function setAuthMessage(message, type = 'info') {
+            const messageEl = document.getElementById('auth-message');
+            if (!messageEl) return;
+            messageEl.textContent = message;
+            messageEl.className = `auth-message ${type}`;
+        }
+
+        function getRoleForUsername(username) {
+            const normalized = normalizeUsername(username);
+            if (normalized.startsWith('advisor-') || normalized.startsWith('danisman-')) {
+                return 'advisor';
+            }
+            return 'student';
+        }
+
+        function formatAuthEmail(username) {
+            const normalized = normalizeUsername(username);
+            return `${normalized}@gelecekrotasi.local`;
+        }
+
+        function initializeFirebase() {
+            if (!window.firebase) {
+                console.error('Firebase SDK not available.');
+                setAuthMessage('Kimlik doğrulama servisi yüklenemedi.', 'error');
+                authReady = true;
+                return;
+            }
+
+            // `firebaseConfig.js` normally calls `firebase.initializeApp(...)`.
+            // Guard against double-initialization: initialize only if no app exists.
+            try {
+                if (!firebase.apps || firebase.apps.length === 0) {
+                    if (typeof firebase.initializeApp === 'function') {
+                        firebase.initializeApp(firebaseConfig);
+                    }
+                }
+            } catch (e) {
+                console.warn('Firebase init guard error:', e);
+            }
+
+            // Obtain primary app, auth and firestore instances
+            try {
+                firebaseApp = firebase.app();
+            } catch (e) {
+                console.warn('firebase.app() unavailable:', e);
+                firebaseApp = null;
+            }
+
+            auth = firebase.auth ? firebase.auth() : null;
+            db = firebase.firestore ? firebase.firestore() : null;
+
+            if (auth && typeof auth.onAuthStateChanged === 'function') {
+                auth.onAuthStateChanged(async user => {
+                    authUser = user;
+                    authReady = true;
+                    if (user) {
+                        await syncUserProfile(user);
+                    }
+                    updateAuthUI();
+                    const activePage = getActivePageId();
+                    if (!user && protectedPages.has(activePage)) {
+                        showPage('home');
+                    }
+                });
+            } else {
+                // If auth not available, mark ready so guardPageAccess behaves sensibly
+                authReady = true;
             }
         }
 
-        // Auth tab değiştirme
+        async function syncUserProfile(user) {
+            if (!db || !user) return;
+            const userRef = db.collection('users').doc(user.uid);
+            const snapshot = await userRef.get();
+            if (snapshot.exists) {
+                currentUserRole = snapshot.data().role || 'student';
+                await userRef.set({
+                    lastLoginAt: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+                return;
+            }
+            currentUserRole = getRoleForUsername(user.displayName || user.email || '');
+            await userRef.set({
+                username: user.displayName || '',
+                role: currentUserRole,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                lastLoginAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+        }
+
         function showAuthTab(tabName) {
             document.querySelectorAll('.auth-tab').forEach(tab => {
                 tab.classList.toggle('active', tab.dataset.authTab === tabName);
@@ -653,75 +849,6 @@
             });
         }
 
-        // Auth mesajı göster
-        function setAuthMessage(message, type = 'info') {
-            const messageEl = document.getElementById('auth-message');
-            if (!messageEl) return;
-            messageEl.textContent = message;
-            messageEl.className = `auth-message ${type}`;
-        }
-
-        // Giriş işlemi
-        function handleLogin(event) {
-            event.preventDefault();
-            const username = document.getElementById('login-username').value.trim();
-            const password = document.getElementById('login-password').value;
-            
-            const result = window.auth.login(username, password);
-            
-            if (result.ok) {
-                setAuthMessage('✅ ' + result.message, 'success');
-                setTimeout(() => {
-                    document.getElementById('login-form').reset();
-                    updateAuthUI();
-                    showPage('home');
-                }, 1000);
-            } else {
-                setAuthMessage('❌ ' + result.message, 'error');
-            }
-        }
-
-        // Kayıt işlemi
-        function handleRegister(event) {
-            event.preventDefault();
-            const username = document.getElementById('register-username').value.trim();
-            const password = document.getElementById('register-password').value;
-            const isAdvisor = document.getElementById('register-is-advisor').checked;
-            
-            let result;
-            if (isAdvisor) {
-                const parts = username.split('.');
-                const firstName = parts[0] || username;
-                const lastName = parts[1] || '';
-                result = window.auth.createAdvisor(firstName, lastName, password);
-            } else {
-                const parts = username.split('.');
-                const firstName = parts[0] || username;
-                const lastName = parts[1] || '';
-                result = window.auth.createStudent(firstName, lastName, password);
-            }
-            
-            if (result.ok) {
-                setAuthMessage('✅ ' + result.message, 'success');
-                setTimeout(() => {
-                    document.getElementById('register-form').reset();
-                    updateAuthUI();
-                    showPage('home');
-                }, 1000);
-            } else {
-                setAuthMessage('❌ ' + result.message, 'error');
-            }
-        }
-
-        // Çıkış işlemi
-        function logoutUser() {
-            window.auth.logout();
-            updateAuthUI();
-            showPage('home');
-            setAuthMessage('', '');
-        }
-
-        // UI güncelle
         function updateAuthUI() {
             const loginBtn = document.getElementById('nav-login-btn');
             const registerBtn = document.getElementById('nav-register-btn');
@@ -729,23 +856,2283 @@
             const userBadge = document.getElementById('nav-user');
             const usernameEl = document.getElementById('nav-username');
             const advisorLink = document.getElementById('nav-advisor-link');
-            
-            const isLogged = window.auth.isAuthenticated();
-            const currentUser = window.auth.getCurrentUser();
-            
-            if (loginBtn) loginBtn.classList.toggle('d-none', isLogged);
-            if (registerBtn) registerBtn.classList.toggle('d-none', isLogged);
-            if (logoutBtn) logoutBtn.classList.toggle('d-none', !isLogged);
-            if (userBadge) userBadge.classList.toggle('d-none', !isLogged);
-            if (usernameEl && currentUser) usernameEl.textContent = currentUser.username;
-            if (advisorLink && currentUser) advisorLink.classList.toggle('d-none', currentUser.role !== 'advisor');
+            const loggedIn = isAuthenticated();
+
+            if (loginBtn) loginBtn.classList.toggle('d-none', loggedIn);
+            if (registerBtn) registerBtn.classList.toggle('d-none', loggedIn);
+            if (logoutBtn) logoutBtn.classList.toggle('d-none', !loggedIn);
+            if (userBadge) userBadge.classList.toggle('d-none', !loggedIn);
+            if (usernameEl) usernameEl.textContent = loggedIn ? getCurrentUser() : '';
+            if (advisorLink) advisorLink.classList.toggle('d-none', !isAdvisor());
         }
 
-        // Sayfa yüklendikçe UI güncelle
-        document.addEventListener('DOMContentLoaded', function() {
+        async function registerUser(username, password) {
+            const trimmedUsername = username.trim();
+            if (trimmedUsername.length < 3) {
+                return { ok: false, message: 'Kullanıcı adı en az 3 karakter olmalıdır.' };
+            }
+            if (password.length < 8) {
+                return { ok: false, message: 'Şifre en az 8 karakter olmalıdır.' };
+            }
+
+            // Eğer Firebase mevcutsa, önce Firebase ile kaydetmeyi dene
+            if (auth && typeof auth.createUserWithEmailAndPassword === 'function') {
+                try {
+                    const email = formatAuthEmail(trimmedUsername);
+                    const credentials = await auth.createUserWithEmailAndPassword(email, password);
+                    await credentials.user.updateProfile({ displayName: trimmedUsername });
+                    currentUserRole = getRoleForUsername(trimmedUsername);
+                    if (db) {
+                        await db.collection('users').doc(credentials.user.uid).set({
+                            username: trimmedUsername,
+                            role: currentUserRole,
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                            lastLoginAt: firebase.firestore.FieldValue.serverTimestamp()
+                        }, { merge: true });
+                    }
+                    return { ok: true, message: 'Hesabınız oluşturuldu ve giriş yapıldı.' };
+                } catch (error) {
+                    console.error('Firebase registration error:', error);
+                    // fallback to local below
+                }
+            }
+
+            // Lokal kayıt (localStorage) - username -> first.last veya tek isim
+            try {
+                const parts = trimmedUsername.split('.');
+                const firstName = parts[0] || trimmedUsername;
+                const lastName = parts[1] || '';
+                // Treat advisor prefix as advisor registration
+                const normalized = trimmedUsername.toLowerCase();
+                if (normalized.startsWith('advisor-') || normalized.startsWith('danisman-')) {
+                    const r = window.auth.createAdvisor(firstName, lastName, password);
+                    if (r.ok) {
+                        storage.setCurrentUser({ id: r.id, role: 'advisor', username: r.username });
+                        currentUserRole = 'advisor';
+                    }
+                    return r;
+                }
+
+                const r = window.auth.createStudent(firstName, lastName, password);
+                if (r.ok) {
+                    storage.setCurrentUser({ id: r.id, role: 'student', username: r.username });
+                    currentUserRole = 'student';
+                }
+                return r;
+            } catch (e) {
+                console.error('Local registration error:', e);
+                return { ok: false, message: 'Kayıt sırasında hata oluştu.' };
+            }
+        }
+
+        async function loginUser(username, password) {
+            const trimmed = username.trim();
+
+            // Try Firebase first if available
+            if (auth && typeof auth.signInWithEmailAndPassword === 'function') {
+                try {
+                    const email = formatAuthEmail(trimmed);
+                    const credentials = await auth.signInWithEmailAndPassword(email, password);
+                    await syncUserProfile(credentials.user);
+                    return { ok: true, message: 'Başarıyla giriş yaptınız.' };
+                } catch (error) {
+                    console.warn('Firebase login failed, falling back to local:', error && error.message);
+                    // continue to local fallback
+                }
+            }
+
+            // Local login
+            try {
+                const res = window.auth.login(trimmed, password);
+                if (res.ok) {
+                    // update currentUserRole for UI logic
+                    const cu = storage.getCurrentUser();
+                    currentUserRole = (cu && cu.role) || (res.role || 'student');
+                }
+                return res;
+            } catch (e) {
+                console.error('Local login error:', e);
+                return { ok: false, message: 'Giriş yapılamadı.' };
+            }
+        }
+
+        function getActivePageId() {
+            const activeSection = document.querySelector('.page-section.active');
+            if (!activeSection) return 'home';
+            return activeSection.id.replace('-page', '');
+        }
+
+        function logoutUser() {
+            // Firebase sign out if available
+            if (auth && typeof auth.signOut === 'function') {
+                try { auth.signOut(); } catch(e){ /* ignore */ }
+            }
+            // Clear local current user as well
+            if (window.storage && typeof window.storage.clearCurrentUser === 'function') {
+                window.storage.clearCurrentUser();
+            }
+            authUser = null;
+            currentUserRole = 'student';
+            // Test control buttons (fill random / reset)
+            const fillRandomBtn = document.querySelector('[data-action="fill-random"]');
+            const resetTestBtn = document.querySelector('[data-action="reset-test"]');
+            if (fillRandomBtn) {
+                fillRandomBtn.addEventListener('click', () => {
+                    fillRandomly();
+                    // Ensure results page is shown after filling
+                    showPage('results');
+                });
+            }
+            if (resetTestBtn) {
+                resetTestBtn.addEventListener('click', () => {
+                    resetTest();
+                    // Show test page to start again
+                    showPage('test');
+                });
+            }
+
+            // Career action clicks are handled globally (listener attached at init)
+
             updateAuthUI();
-            console.log('✅ Page loaded - Auth UI updated');
+            showPage('home');
+        }
+
+        function guardPageAccess(pageId) {
+
+    // Allow viewing results immediately after a test even when not authenticated
+    if (pageId === 'results' && window.testResults && window.testResults.categoryScores) {
+        return 'results';
+    }
+
+    if (protectedPages.has(pageId) && !isAuthenticated()) {
+        pendingPage = pageId;
+
+        if (!authReady) {
+            setAuthMessage('Kimlik doğrulama servisi yükleniyor...', 'info');
+        } else {
+            setAuthMessage('Bu sayfaya erişmek için giriş yapmalısınız.', 'warning');
+        }
+
+        showAuthTab('login');
+        return 'auth';
+    }
+
+    if (pageId === 'advisor-dashboard' && !isAdvisor()) {
+        setAuthMessage('Bu sayfaya erişmek için danışman hesabı gerekir.', 'warning');
+        return 'home';
+    }
+
+    if (pageId === 'auth' && isAuthenticated()) {
+        setAuthMessage('Zaten giriş yaptınız.', 'success');
+        return 'home'; // genelde auth'a tekrar girmesin diye home'a yönlendirilir
+    }
+
+    return pageId;
+}
+
+        // Page navigation with smooth transitions
+        function showPage(pageId) {
+            const guardedPageId = guardPageAccess(pageId);
+            // Hide all pages
+            document.querySelectorAll('.page-section').forEach(page => {
+                page.classList.remove('active');
+            });
+            
+            // Show target page with animation
+            setTimeout(() => {
+                const targetPage = document.getElementById(guardedPageId + '-page');
+                if (targetPage) {
+                    targetPage.classList.add('active');
+                    
+                    // Initialize page-specific content
+                    if (guardedPageId === 'test') {
+                        initializeTest();
+                    } else if (guardedPageId === 'careers') {
+                        loadAllCareers();
+                    } else if (guardedPageId === 'vr-explore') {
+                        loadVRCareers();
+                    } else if (guardedPageId === 'results') {
+                        // Check if we have test results to display
+                        if (window.testResults && window.testResults.categoryScores) {
+                            displayExistingResults();
+                        }
+                    } else if (guardedPageId === 'advisor-dashboard') {
+                        loadAdvisorDashboard();
+                    } else if (guardedPageId === 'auth') {
+                        const usernameInput = document.getElementById('login-username');
+                        if (usernameInput) {
+                            usernameInput.focus();
+                        }
+                    }
+                }
+            }, 100);
+        }
+
+        // Make functions globally accessible for HTML onclick attributes
+        window.showPage = showPage;
+        window.fillRandomly = fillRandomly;
+        window.resetTest = resetTest;
+        window.showCareerDetail = showCareerDetail;
+        window.openVRSimulation = openVRSimulation;
+
+        // Initialize application
+        document.addEventListener('DOMContentLoaded', function() {
+            // Suppress WebSocket errors from Live Preview
+            window.addEventListener('error', function(e) {
+                if (e.message.includes('WebSocket') || e.message.includes('favicon')) {
+                    e.preventDefault();
+                    return false;
+                }
+            });
+            
+            // Check if external libraries loaded
+            checkLibraryAvailability();
+            
+            loadQuestions();
+            loadCareers();
+            loadAnswersFromStorage();
+            
+            // Add scroll animations
+            addScrollAnimations();
+
+            initializeFirebase();
+
+            const loginBtn = document.getElementById('nav-login-btn');
+            const registerBtn = document.getElementById('nav-register-btn');
+            const logoutBtn = document.getElementById('nav-logout-btn');
+            const loginForm = document.getElementById('login-form');
+            const registerForm = document.getElementById('register-form');
+
+            if (loginBtn) {
+                loginBtn.addEventListener('click', () => {
+                    pendingPage = null;
+                    setAuthMessage('');
+                    showAuthTab('login');
+                    showPage('auth');
+                });
+            }
+
+            if (registerBtn) {
+                registerBtn.addEventListener('click', () => {
+                    pendingPage = null;
+                    setAuthMessage('');
+                    showAuthTab('register');
+                    showPage('auth');
+                });
+            }
+
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', logoutUser);
+            }
+
+            document.querySelectorAll('.auth-tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    setAuthMessage('');
+                    showAuthTab(tab.dataset.authTab);
+                });
+            });
+
+            if (loginForm) {
+                loginForm.addEventListener('submit', async event => {
+                    event.preventDefault();
+                    const username = document.getElementById('login-username').value;
+                    const password = document.getElementById('login-password').value;
+                    const result = await loginUser(username, password);
+                    setAuthMessage(result.message, result.ok ? 'success' : 'error');
+                    if (result.ok) {
+                        updateAuthUI();
+                        pendingPage = null;
+                        showPage('action-select');
+                        const nextPage = pendingPage || 'home';
+                        pendingPage = null;
+                        showPage(nextPage);
+                    }
+                });
+            }
+
+            if (registerForm) {
+                registerForm.addEventListener('submit', async event => {
+                    event.preventDefault();
+                    const username = document.getElementById('register-username').value;
+                    const password = document.getElementById('register-password').value;
+                    const isAdvisorCheckbox = document.getElementById('register-is-advisor');
+
+                    if (isAdvisorCheckbox && isAdvisorCheckbox.checked) {
+                        const parts = username.trim().split('.');
+                        const first = (parts[0] || username.trim()).trim();
+                        // If user provided only one name, default last name to 'danisman' so creation won't fail
+                        const last = (parts[1] || 'danisman').trim();
+                        const res = window.auth.createAdvisor(first, last, password);
+                        setAuthMessage(res.message, res.ok ? 'success' : 'error');
+                        if (res.ok) {
+                            storage.setCurrentUser({ id: res.id, role: 'advisor', username: res.username });
+                            currentUserRole = 'advisor';
+                            updateAuthUI();
+                            pendingPage = null;
+                            showPage('action-select');
+                            const nextPage = pendingPage || 'home';
+                            pendingPage = null;
+                            showPage(nextPage);
+                        }
+                        return;
+                    }
+
+                    const result = await registerUser(username, password);
+                    setAuthMessage(result.message, result.ok ? 'success' : 'error');
+                    if (result.ok) {
+                        updateAuthUI();
+                        pendingPage = null;
+                        showPage('action-select');
+                        const nextPage = pendingPage || 'home';
+                        pendingPage = null;
+                        showPage(nextPage);
+                    }
+                });
+            }
+
+            updateAuthUI();
+
+            // Auto-debug: log career action buttons for users who can't run console commands
+            setTimeout(() => {
+                try {
+                    const els = document.querySelectorAll('[data-career-action]');
+                    console.log('Auto career action elements count:', els.length);
+                    els.forEach((el, i) => console.log('Auto career element', i, el.dataset));
+                } catch (e) {
+                    console.warn('Auto career element check failed', e);
+                }
+            }, 600);
+
+            // Attach global career action click listener once during initialization
+            document.addEventListener('click', function(e) {
+                const el = e.target.closest('[data-career-action]');
+                if (!el) return;
+                const action = el.dataset.careerAction;
+                const idRaw = el.getAttribute('data-career-id');
+                let careerId = null;
+                if (idRaw !== null && idRaw !== undefined && idRaw !== '') {
+                    const n = Number(idRaw);
+                    careerId = Number.isFinite(n) ? n : null;
+                }
+
+                // Fallback: try to resolve by career name inside the card if id is missing/invalid
+                if (!careerId) {
+                    const nameFromDataset = el.dataset.careerName;
+                    const titleEl = el.querySelector('.vr-career-title, .career-title, h4, h5');
+                    const name = nameFromDataset || (titleEl ? titleEl.textContent.trim() : null);
+                    if (name && Array.isArray(careers)) {
+                        const found = careers.find(c => c.name === name || String(c.id) === name);
+                        if (found) careerId = found.id;
+                    }
+                }
+
+                console.log('Career action clicked:', { action, careerId, el });
+                if (action === 'details' && careerId) {
+                    console.log('Invoking showCareerDetail for id', careerId);
+                    showCareerDetail(careerId);
+                } else if ((action === 'open-vr' || action === 'open-vr-close') && careerId) {
+                    console.log('Invoking openVRSimulation for id', careerId);
+                    openVRSimulation(careerId);
+                    // close modal if the button is inside one
+                    const modalClose = el.closest('.modal');
+                    if (modalClose) {
+                        try { bootstrap.Modal.getInstance(modalClose)?.hide(); } catch(e) { console.warn('Modal hide failed', e); }
+                    }
+                } else {
+                    console.warn('Career action click ignored (missing id or unknown action):', { action, careerId });
+                }
+            });
         });
+
+        // Check if external libraries are available
+        function checkLibraryAvailability() {
+            const libraries = {
+                'Three.js': typeof THREE !== 'undefined',
+                'Chart.js': typeof Chart !== 'undefined',
+                'YouTube API': typeof YT !== 'undefined',
+                'Firebase': typeof firebase !== 'undefined'
+            };
+            
+            console.log('Library availability:', libraries);
+            
+            // Show warning if libraries are missing
+            const missingLibraries = Object.entries(libraries)
+                .filter(([, available]) => !available)
+                .map(([name]) => name);
+            
+            if (missingLibraries.length > 0) {
+                console.warn('Missing libraries:', missingLibraries);
+                // Add a subtle warning to the page
+                const warning = document.createElement('div');
+                warning.style.cssText = `
+                    position: fixed;
+                    top: 80px;
+                    right: 20px;
+                    background: rgba(255, 193, 7, 0.9);
+                    color: #000;
+                    padding: 10px 15px;
+                    border-radius: 8px;
+                    font-size: 0.8rem;
+                    z-index: 1000;
+                    max-width: 300px;
+                `;
+                warning.innerHTML = `
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <strong>Bazı özellikler yüklenemedi:</strong><br>
+                    ${missingLibraries.join(', ')}<br>
+                    <small>İnternet bağlantınızı kontrol edin</small>
+                `;
+                document.body.appendChild(warning);
+                
+                // Remove warning after 5 seconds
+                setTimeout(() => {
+                    if (warning.parentNode) {
+                        warning.parentNode.removeChild(warning);
+                    }
+                }, 5000);
+            }
+        }
+
+        // Create sample questions if JSON file is not available
+        function loadQuestions() {
+            // fetch ile dışarıdan dosya yükleme kaldırıldı, doğrudan gömülü sorular kullanılacak
+            createSampleQuestions();
+        }
+        function createSampleQuestions() {
+            const questionsData = [
+                { q: "Bir yazı yazarken, bir ödev yaparken, yazım (imla) kurallarına dikkat eder misiniz?", cat: "Sözel Yetenek" },
+                { q: "Bir hikaye kitabını hızlı ve doğru okuyabilir misiniz?", cat: "Sözel Yetenek" },
+                { q: "Çarpım tablosunu, bölme işlemini kolay öğrenebildiniz mi?", cat: "Sayısal Yetenek" },
+                { q: "Birbirine çok benzeyen iki resmin arasındaki küçük farkları hemen görebilir misiniz?", cat: "Şekil-Uzay Yeteneği" },
+                { q: "Kelimeleri doğru bir biçimde yazabiliyor ve söyleyebiliyor musunuz?", cat: "Sözel Yetenek" },
+                { q: "Bir dairenin merkezini doğru bir biçimde tahmin ederek işaretleyebilir misiniz?", cat: "Göz-El Koordinasyonu" },
+                { q: "İki çizgi arsında çok az bir uzunluk farkı olduğunda, bunu kolaylıkla algılayabilir misiniz?", cat: "Göz-El Koordinasyonu" },
+                { q: "Bir parçayı bir kere okuduktan sonra hemen özetleyebiliyor musunuz?", cat: "Sözel Yetenek" },
+                { q: "Dört işlemle akıldan, hızlı problem çözebilir misiniz?", cat: "Sayısal Yetenek" },
+                { q: "Bir doğru parçasının kaç santimetre olduğunu doğru tahmin edebilir misiniz?", cat: "Sayısal Yetenek" },
+                { q: "Yeni duyduğunuz kelimelerin anlamlarını öğrenmeye çalışır mısınız?", cat: "Sözel Yetenek" },
+                { q: "Okuduğunuz bir parçada belirten fikirler arsında ilişki kurabiliyor musunuz?", cat: "Sözel Yetenek" },
+                { q: "Bir matematik probleminin çözüm yolunu öğrendikten sonra, ona benzer problemleri çözebiliyor musunuz?", cat: "Sayısal Yetenek" },
+                { q: "İlk defa gittiğiniz binada yönünüzü bulabiliyor musunuz?", cat: "Şekil-Uzay Yeteneği" },
+                { q: "Bir defa başkaları ile birlikte gittiğiniz bir yeri, ikinci defa yalnız başına gittiğinizde, kolaylıkla bulabilir misiniz?", cat: "Şekil-Uzay Yeteneği" },
+                { q: "Gelişigüzel parçaları ayrılmış bir şeklin veya cismin parçalarını eski yerlerine kolaylıkla yerleştirebilir misiniz?", cat: "Şekil-Uzay Yeteneği" },
+                { q: "Bir makinanın şemasına bakarak makineyi kurabilir misiniz?", cat: "Mekanik İlgi" },
+                { q: "Açılmış hali verilen geometrik bir cismin, kapandığı zaman açılacağı şekli göz önünde canlandırabilir misiniz?", cat: "Şekil-Uzay Yeteneği" },
+                { q: "Bir konuda edindiğiniz bilgileri, kendi sözcüklerinizle başkalarına aktarabiliyor musunuz?", cat: "Sözel Yetenek" },
+                { q: "Sizin düzeyinizde bir matematik kitabını okuyarak bir problemin çözüm yolunu bulabiliyor musunuz?", cat: "Sayısal Yetenek" },
+                { q: "Boş zamanlarınızda, zevk için matematik problemleri çözmeye çalışır mısınız?", cat: "Sayısal Yetenek" },
+                { q: "Bir konuyu söz ve yazı ile anlatırken, fikirleri doğru bir sıra ile verebiliyor musunuz?", cat: "Sözel Yetenek" },
+                { q: "Matematik dersinde, özel bir yardım (ders) almadan başarılı olabiliyor musunuz?", cat: "Sayısal Yetenek" },
+                { q: "Bir yazıdaki fikir ve ifade hatalarını kolaylıkla görebilir misiniz?", cat: "Sözel Yetenek" },
+                { q: "Boş bir kesme şeker kutusu, kısa kenarlarından kesilip açılınca hangi yüzeyin nereye geleceğini gözönünde canlandırabilir misiniz?", cat: "Şekil-Uzay Yeteneği" },
+                { q: "Öğrendiğiniz matematik kurallarına fen bilgisi derslerindeki problemlere uygulayabiliyor musunuz?", cat: "Sayısal Yetenek" },
+                { q: "Bir kağıda, cetvel kullanmadan düzgün paralel çizgiler çizebiliyor musunuz?", cat: "Göz-El Koordinasyonu" },
+                { q: "Karmaşık bir geometrik şeklin, sağa ve sola döndürülmesi ile alacağı durumu gözönünde canlandırabilir misiniz?", cat: "Şekil-Uzay Yeteneği" },
+                { q: "Bir problemin, size öğretilen çözüm yollarından farklı çözüm yollarını bulabilir misiniz?", cat: "Sayısal Yetenek" },
+                { q: "Akıcı bir üslupla güzel yazı (örneğin bir mektup) yazabilir misiniz?", cat: "Sözel Yetenek" },
+                { q: "Okuduğunuz bir parçada anlatılan fikirleri bulup özetleyebiliyor musunuz?", cat: "Sözel Yetenek" },
+                { q: "Sizin düzeyinde, ama daha önce hiç görmediğiniz bir matematik kitabını rahatlıkla okuyabilir misiniz?", cat: "Sayısal Yetenek" },
+                { q: "Bir evin planına baktığınızda, evin yapılmış halini gözönünde canlandırabilir misiniz?", cat: "Şekil-Uzay Yeteneği" },
+                { q: "Bir kağıda çizilen yıldız biçimindeki bir şekli makasla, düzgün bir biçimde kesip çıkarabilir misiniz?", cat: "Göz-El Koordinasyonu" },
+                { q: "Alet kullanmadan düzgün geometrik şekiller çizebilir misiniz?", cat: "Göz-El Koordinasyonu" },
+                { q: "Attığınız bir bilyeyi veya bir taşı istediğiniz hedefe gönderebilir misiniz?", cat: "Göz-El Koordinasyonu" },
+                { q: "Satranç öğrenmek için çaba sarfediyor musunuz?", cat: "Mekanik İlgi" },
+                { q: "Fen dersleri ile ilgili konuları kolay öğrenebiliyor musunuz?", cat: "Fen Bilimleri İlgisi" },
+                { q: "Desenli kağıtları, şekilleri birbirine tamamlayacak şekilde, yanyana yapıştırabilir misiniz?", cat: "Şekil-Uzay Yeteneği" },
+                { q: "Bir aletin (örneğin, saatin) çok küçük bir parçasını (vidasını) yerine kolayca yerleştirebilir misiniz?", cat: "Göz-El Koordinasyonu" },
+                { q: "Gelecekte kendinizi, laboratuarda araştırmacı olarak düşlediğiniz oldumu?", cat: "Fen Bilimleri İlgisi" },
+                { q: "Bir kente gittiğinizde, müzeleri, tarihi yerleri gezer misiniz?", cat: "Sosyal Bilimler İlgisi" },
+                { q: "Çeşitli atasözlerinin ve özdeyişlerin nereden çıktığını araştırmak ister misiniz?", cat: "Edebiyat İlgisi" },
+                { q: "İnsanların ne düşündüklerini ve ne hissettiklerini incelemekten hoşlanır mısınız?", cat: "Sosyal Bilimler İlgisi" },
+                { q: "Fen derslerinde öğrendiğiniz ilke ve kuralları evinizdeki sorunların çözümünde kullanır mısınız?", cat: "Fen Bilimleri İlgisi" },
+                { q: "Fen dersleri ile ilgili konularda sınıfta öğretilenlerden daha fazla bilgi edinmek için başka kaynaklara başvurduğunuz oluyor mu?", cat: "Fen Bilimleri İlgisi" },
+                { q: "Evcil hayvanların veya bitkilerin gelişmelerini incelemekten hoşlanır mısınız?", cat: "Fen Bilimleri İlgisi" },
+                { q: "Yeni öğrendiğiniz yabancı dildeki sözcükleri bir cümlede kullanmaya çalışır mısınız?", cat: "Yabancı Dil İlgisi" },
+                { q: "Fen bilgisi ile ilgili problemleri çözmekten hoşlanır mısınız?", cat: "Fen Bilimleri İlgisi" },
+                { q: "Deniz dibindeki hayatı gösteren bir filmi ilgi ve dikkatle izler misiniz?", cat: "Fen Bilimleri İlgisi" },
+                { q: "Yabancı dildeki kelimeleri kolaylıkla ezberleyebiliyor musunuz?", cat: "Yabancı Dil İlgisi" },
+                { q: "Bir bilyeyi, başka bir bilye ile vurarak, istediğiniz hedefe gönderebilir misiniz?", cat: "Göz-El Koordinasyonu" },
+                { q: "Büyük coğrafya keşiflerini anlatan bir televizyon dizisini izlemekten hoşlanır mısınız?", cat: "Sosyal Bilimler İlgisi" },
+                { q: "Tarih ve coğrafya derslerinde okutulan konuları kolay öğrenebiliyor musunuz?", cat: "Sosyal Bilimler İlgisi" },
+                { q: "Bilimsel proje sergilerini gezer misiniz?", cat: "Fen Bilimleri İlgisi" },
+                { q: "İnsanların gazetelerde hangi haberleri merakla okuduklarını araştırmak ister misiniz?", cat: "Sosyal Bilimler İlgisi" },
+                { q: "Tarih romanları okumaktan hoşlanır mısınız?", cat: "Edebiyat İlgisi" },
+                { q: "Televizyonda bilimsel buluşları anlatan belgesel programları izler misiniz?", cat: "Fen Bilimleri İlgisi" },
+                { q: "Ünlü bilim adamlarının hayatını anlatan televizyon dizilerini izler misiniz?", cat: "Fen Bilimleri İlgisi" },
+                { q: "Bir pastayı veya böreği, eşit olarak ve düzgün biçimde kesebilir misiniz?", cat: "Göz-El Koordinasyonu" },
+                { q: "Çocuklarda yaratıcılık başlıklı bir makaleyi okumak ister misiniz?", cat: "Sosyal Bilimler İlgisi" },
+                { q: "Çevrenizdeki insanların davranışlarının nedenlerini merak edip araştırır mısınız?", cat: "Sosyal Bilimler İlgisi" },
+                { q: "Uzay araçlarının, roketlerin evrimini gösteren bir sergiyi izlemek ister misiniz?", cat: "Fen Bilimleri İlgisi" },
+                { q: "Ünlü toplum liderlerinin hayatını anlatan eserleri okumak veya filmleri izlemek ister misiniz?", cat: "Sosyal Bilimler İlgisi" },
+                { q: "İnsan hakları konulu bir ödev hazırlayıp sınıfta sunmak ister misiniz?", cat: "İkna İlgisi" },
+                { q: "Küçük bir deliğe, ince bir çubuğu, deliğin kenarına değdirmeden sokabilir misiniz?", cat: "Göz-El Koordinasyonu" },
+                { q: "Küçük bir şeklin içini, dışarı taşırmadan sulu boya ile boyayabilir misiniz?", cat: "Göz-El Koordinasyonu" },
+                { q: "Orta Asya'daki eski uygarlık eserlerini gösteren bir belgesel filmi izlemekten hoşlanır mısınız?", cat: "Sosyal Bilimler İlgisi" },
+                { q: "Evinizde ipekböceği yetiştirip bakımını üstlenebilir misiniz?", cat: "Ziraat İlgisi" },
+                { q: "Kapı zili, kilit gibi ev aletlerini onarmaya çalışır mısınız?", cat: "Mekanik İlgi" },
+                { q: "Tahtadan veya metalden oyuncaklar yapabilir misiniz?", cat: "Mekanik İlgi" },
+                { q: "Yeni çiçek türleri yetiştirmeyi denemek ister misiniz?", cat: "Ziraat İlgisi" },
+                { q: "Bir yabancı turistle, bildiğiniz yabancı dille konuşmaya çalışır mısınız?", cat: "Yabancı Dil İlgisi" },
+                { q: "Gelecekte yabancı dilinizi ilerletip o dilde yazılmış dergi ve kitapları okumayı düşünür müsünüz?", cat: "Yabancı Dil İlgisi" },
+                { q: "Hayvanat bahçesine getirilen hayvanların yeni çevreye uyum sorunları konulu bir belgesel filmi ilgi ile izler misiniz?", cat: "Ziraat İlgisi" },
+                { q: "Bir çiftliğin yöneticisi olmayı düşünür müsünüz?", cat: "Ziraat İlgisi" },
+                { q: "Yeni öğrendiğiniz yabancı dildeki sözcükleri doğru biçimde söylemeye gayret eder misiniz?", cat: "Yabancı Dil İlgisi" },
+                { q: "Kaliteli meyve yetiştiren bir üretici olmayı düşünür müsünüz?", cat: "Ziraat İlgisi" },
+                { q: "Bir aleti parçalara ayırıp tekrar birleştirebilir misiniz?", cat: "Mekanik İlgi" },
+                { q: "Evcil hayvanların hangi koşullarda ve ortamda daha iyi geliştiklerini incelemekten hoşlanır mısınız?", cat: "Ziraat İlgisi" },
+                { q: "Yeni bir alet veya makine ile karşılaştığınızda, hemen onun nasıl çalıştığını öğrenmeye çalışır mısınız?", cat: "Mekanik İlgi" },
+                { q: "Evde bir hayvan (kuş) besler, bakımını yapar mısınız?", cat: "Ziraat İlgisi" },
+                { q: "Saksıda ve bahçede çiçek yetiştirip bakımını üstlenir misiniz?", cat: "Ziraat İlgisi" },
+                { q: "Elektrikli aletlerin nasıl işlediklerini inceler misiniz?", cat: "Mekanik İlgi" },
+                { q: "Havuzlarda balık üretme yöntemlerini gösteren bir filmi ilgi ile izler misiniz?", cat: "Ziraat İlgisi" },
+                { q: "Her türlü araç ve gereç sağlansa, bir kafes yapmayı dener misiniz?", cat: "Mekanik İlgi" },
+                { q: "İnanç ve düşüncelerinizi başkalarına kolaylıkla aktarabilir misiniz?", cat: "İkna İlgisi" },
+                { q: "Tartışmalarda güçlü kanıtlar bularak, görüşünüzü karşınızdakilere kabul ettirebilir misiniz?", cat: "İkna İlgisi" },
+                { q: "Belleğiniz kuvvetli midir?", cat: "Sözel Yetenek" },
+                { q: "İnsanların daha çok hangi malları almak istediklerini öğrenmeye çalışır mısınız?", cat: "Ticaret İlgisi" },
+                { q: "Model uçak yapmaya çalışır mısınız?", cat: "Mekanik İlgi" },
+                { q: "Arkadaşlarınız arasındaki çatışmaların çözümünde arabuluculuk yapar mısınız?", cat: "İkna İlgisi" },
+                { q: "Bir yazıdaki hataları düzeltmekten, bir hesabı kontrol etmekten hoşlanır mısınız?", cat: "İş Ayrıntıları İlgisi" },
+                { q: "Yaptığınız herhangi bir işin temiz ve özenli olması için gereken özeni gösterir misiniz?", cat: "İş Ayrıntıları İlgisi" },
+                { q: "Bir makinanın, örneğin bir elektrik motorunun, evrimini gösteren bir sergiyi gezmek ister misiniz?", cat: "Mekanik İlgi" },
+                { q: "Çevrenizde Hazırcevap bir kişi olarak tanınır mısınız?", cat: "İkna İlgisi" },
+                { q: "Okul kantini ya da kooperatifini yönetmek ister misiniz?", cat: "Ticaret İlgisi" },
+                { q: "Bir işin ince ayrıntıları ile uğraşır mısınız?", cat: "İş Ayrıntıları İlgisi" },
+                { q: "Paranızı nerelerde harcadığınızın kaydını tutar mısınız?", cat: "İş Ayrıntıları İlgisi" },
+                { q: "Anılarınızı yazar mısınız?", cat: "Edebiyat İlgisi" },
+                { q: "Yaz aylarında bir dükkanda ya da ticarethanede çalışmak ister misiniz?", cat: "Ticaret İlgisi" },
+                { q: "Derslerinize günü gününe çalışır mısınız?", cat: "İş Ayrıntıları İlgisi" },
+                { q: "Okulda şiir okuma yarışmaları düzenleyen bir grubun üyesi olmak ister misiniz?", cat: "Edebiyat İlgisi" },
+                { q: "Mektuplarınızı eski okul karnelerinizi tarih sırasına koyup saklar mısınız?", cat: "İş Ayrıntıları İlgisi" },
+                { q: "Aldığınız her şeyin ya da yaptığınız her işin düzenli bir biçimde kaydını tutar mısınız?", cat: "İş Ayrıntıları İlgisi" },
+                { q: "Yabancı dil kurslarına gitmek ister misiniz?", cat: "Yabancı Dil İlgisi" },
+                { q: "Bir makinanın çalışmasını geliştirici yöntemler düşünür müsünüz?", cat: "Mekanik İlgi" },
+                { q: "Söz ve davranışlarınızın başkaları üzerindeki etkilerini öğrenmeye çalışır mısınız?", cat: "İkna İlgisi" },
+                { q: "Konuşurken çevrenizdeki insanların ilgisini çekebilir ve görüşlerinizi onlara kabul ettirebilir misiniz?", cat: "İkna İlgisi" },
+                { q: "Televizyondaki reklamların daha iyi nasıl yapılabileceği üzerinde araştırma yapan bir grubun içinde yer almak ister misiniz?", cat: "Ticaret İlgisi" },
+                { q: "Evleri dolaşıp bir malın tanıtımını yapmaktan hoşlanır mısınız?", cat: "Ticaret İlgisi" },
+                { q: "Ödevlerinizi zamanında ve düzgün biçimde yapar mısınız?", cat: "İş Ayrıntıları İlgisi" },
+                { q: "Televizyonda veya radyoda şiir saatlerini izler misiniz?", cat: "Edebiyat İlgisi" },
+                { q: "Kendini gelecekte bir yazar olarak düşlediğiniz olur mu?", cat: "Edebiyat İlgisi" },
+                { q: "Yaptığınız her hangi bir şeyi özenle süsler misiniz?", cat: "Güzel Sanatlar İlgisi" },
+                { q: "Küçük hikayeler yazmayı dener misiniz?", cat: "Edebiyat İlgisi" },
+                { q: "Ünlü sanatçıların, ressamların hayatını merak eder misiniz?", cat: "Güzel Sanatlar İlgisi" },
+                { q: "Çevrenizdeki çeşitli makinaların bakımını yapar, onları bozmadan kullanabilir misiniz?", cat: "Mekanik İlgi" },
+                { q: "Sizin gibi düşünmeyen insanları ikna etmek için uzun tartışmalara girer misiniz?", cat: "İkna İlgisi" },
+                { q: "Çevrenizdeki eşyaların, ürünlerin, satılsalar kaç lira edeceklerini düşünür müsünüz?", cat: "Ticaret İlgisi" },
+                { q: "Eşyalarınızı yerli yerine koyar, çevrenizi düzenli tutar mısınız?", cat: "İş Ayrıntıları İlgisi" },
+                { q: "Bir malı satmak için neler yapmak gerektiğini öğreten bir kursa katılmak ister misiniz?", cat: "Ticaret İlgisi" },
+                { q: "Gazete, boş şişe gibi kullanılmış şeyleri satarak para kazanmayı düşünür müsünüz?", cat: "Ticaret İlgisi" },
+                { q: "Yabancı dilde şarkı söylemeye özenir misiniz?", cat: "Yabancı Dil İlgisi" },
+                { q: "Mektupları zamanında cevaplandırır mısınız?", cat: "İş Ayrıntıları İlgisi" },
+                { q: "Bir şeyi satın alacağınız zaman çeşitli dükkanları dolaşıp fiyatları karşılaştırarak gereğini duyar mısınız?", cat: "Ticaret İlgisi" },
+                { q: "Bir aleti, tarifesine ve şemasına bakarak çalıştırabilir misiniz?", cat: "Mekanik İlgi" },
+                { q: "Güzel konuşma ve başkalarını ikna edebilme gücünü geliştirici kurslara katılmak ister misiniz?", cat: "İkna İlgisi" },
+                { q: "Arkadaşlarınıza ciklet, çikolata, bilye vb. şeyler sattınız mı?", cat: "Ticaret İlgisi" },
+                { q: "Gelecekte kendinizi bir tüccar olarak düşlediğiniz olur mu?", cat: "Ticaret İlgisi" },
+                { q: "Roman, hikaye veya şiir okur musunuz?", cat: "Edebiyat İlgisi" },
+                { q: "Boş vakitlerinizde çiçek, nakış, resim, heykel vb. yapar mısınız?", cat: "Güzel Sanatlar İlgisi" },
+                { q: "Radyo ve televizyonda müzik programlarını izler misiniz?", cat: "Müzik İlgisi" },
+                { q: "Müzik yarışmalarına katılmak ister misiniz?", cat: "Müzik İlgisi" },
+                { q: "Televizyonda resim sanatı ile ilgili haberleri ilgi ile izler misiniz?", cat: "Güzel Sanatlar İlgisi" },
+                { q: "Gittiğiniz bir kentte sanat galerilerini, resim sergilerini gezmek ister misiniz?", cat: "Güzel Sanatlar İlgisi" },
+                { q: "Ağlayan bir çocuğu oyalayabilir misiniz?", cat: "Sosyal Yardım İlgisi" },
+                { q: "Yaşlılar yurdunda eğlence günleri düzenlemekten hoşlanır mısınız?", cat: "Sosyal Yardım İlgisi" },
+                { q: "Başkalarına kişisel sorunların çözümünde yardımcı olabiliyor musunuz?", cat: "Sosyal Yardım İlgisi" },
+                { q: "Çocuk gürültüsüne katlanabilir misiniz?", cat: "Sosyal Yardım İlgisi" },
+                { q: "Belli bir anda pek çok şeye birden dikkat edebilir misiniz?", cat: "Sözel Yetenek" },
+                { q: "Kompozisyon derslerinde başarılı mısınız?", cat: "Edebiyat İlgisi" },
+                { q: "Okul gazetesine yazı yazar mısınız?", cat: "Edebiyat İlgisi" },
+                { q: "Müzik dersleri alıyor musunuz veya almak ister misiniz?", cat: "Müzik İlgisi" },
+                { q: "Bir müzik aleti çalar mısınız?", cat: "Müzik İlgisi" },
+                { q: "Bir hastaya bakabilir, ilaçlarını zamanında verebilir misiniz?", cat: "Sosyal Yardım İlgisi" },
+                { q: "Resim ve mimarlık sanatının gelişimini anlatan bir kitabı zevkle okur musunuz?", cat: "Güzel Sanatlar İlgisi" },
+                { q: "Bir hastanede, yaz aylarında gönüllü olarak çalışmak ister misiniz?", cat: "Sosyal Yardım İlgisi" },
+                { q: "Boş vakitlerinizi resim veya el işleri yaparak geçirmeye çalışır mısınız?", cat: "Güzel Sanatlar İlgisi" },
+                { q: "Konuştuğunuz zaman kendinizi çevrenizdeki insanlara dinletebiliyor musunuz?", cat: "İkna İlgisi" },
+                { q: "Karşınızdaki insanların ne düşündükleri ve ne hissettiklerini anlayabilir misiniz?", cat: "Sosyal Yardım İlgisi" },
+                { q: "Müzik aletleri sergisini gezmek ister misiniz?", cat: "Müzik İlgisi" },
+                { q: "Çeşitli ülkelerin halk şarkılarını tanıtan bir program izler misiniz?", cat: "Müzik İlgisi" },
+                { q: "Hastalar ve yaşlılara kitap okumaktan hoşlanır mısınız?", cat: "Sosyal Yardım İlgisi" },
+                { q: "Küçük çocuklara oyun öğretmekten, onlara şarkı söylemekten hoşlanır mısınız?", cat: "Sosyal Yardım İlgisi" },
+                { q: "İmkanlarınız ölçüsünde konserlere gitmeye çalışır mısınız?", cat: "Müzik İlgisi" },
+                { q: "Yabancı dil dersinde başarılı mısınız?", cat: "Yabancı Dil İlgisi" },
+                { q: "Ayakta ve hareketli olarak çalışmaktan hoşlanır mısınız?", cat: "Sosyal Yardım İlgisi" },
+                { q: "Ufak tefek besteler yapmaya çalışır mısınız?", cat: "Müzik İlgisi" },
+                { q: "Bir evi ya da salonu süslemekten hoşlanır mısınız?", cat: "Güzel Sanatlar İlgisi" },
+                { q: "Başkalarına dinletecek düzeyde bir müzik aleti çalıyor musunuz?", cat: "Müzik İlgisi" },
+                { q: "Odanızı, yaptığınız resim veya el işleri ile süsler misiniz?", cat: "Güzel Sanatlar İlgisi" },
+                { q: "El sanatları ya da resim kurslarına gitmek ister misiniz?", cat: "Güzel Sanatlar İlgisi" },
+                { q: "Yeni duyduğunuz bir müzik parçasını çalmaya veya söylemeye çalışır mısınız?", cat: "Müzik İlgisi" },
+                { q: "Gazete ve dergilerdeki edebiyat sütunlarını okur musunuz?", cat: "Edebiyat İlgisi" },
+                { q: "Okul kitaplığına gider ve kitap alır mısınız?", cat: "Edebiyat İlgisi" },
+                { q: "Dilbilgisi kurallarını öğrenip uygulayabiliyor musunuz?", cat: "Sözel Yetenek" },
+                { q: "Görüşlerinize karşı çıkıldığında bunu soğukkanlılıkla karşılar mısınız?", cat: "Sosyal Yardım İlgisi" },
+                { q: "Açık havada çalışmaktan hoşlanır mısınız?", cat: "Sosyal Yardım İlgisi" },
+                { q: "Gelecekte kendinizi çeşitli dillerin yapı ve özellikleri üzerinde çalışan bir araştırmacı olarak düşünebilir misiniz?", cat: "Yabancı Dil İlgisi" }
+            ];
+            
+            questions = [];
+            questionsData.forEach((item, index) => {
+                questions.push({
+                    id: index + 1,
+                    question: item.q,
+                    category: item.cat
+                });
+            });
+        }
+
+        // Load careers data
+        function loadCareers() {
+            // Use imported career data
+            careers = careerData.map((career, index) => ({
+                id: index + 1,
+                name: career.name,
+                summary: career.description,
+                description: career.description,
+                icon: 'fas fa-briefcase', // Default icon
+                color: 'primary', // Default color
+                requirements: career.requirements,
+                vrDescription: career.vrDescription || `${career.name} mesleğini VR ile deneyimleyin!`,
+                illustration: career.vr_image,
+                hasVRVideo: career.hasVRVideo || false,
+                vrVideoFile: career.vrVideoFile || null
+            }));
+        }
+
+        // Initialize test
+        function initializeTest() {
+            currentQuestionIndex = 0;
+            if (questions.length > 0) {
+                displayQuestion();
+                updateProgress();
+            }
+            
+            // Remove existing event listeners first to prevent duplicates
+            document.querySelectorAll('.answer-btn').forEach(btn => {
+                btn.replaceWith(btn.cloneNode(true));
+            });
+            
+            // Add answer button event listeners (only once)
+            document.querySelectorAll('.answer-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    if (this.classList.contains('processing')) return; // Prevent double clicks
+                    this.classList.add('processing');
+                    
+                    setTimeout(() => {
+                        this.classList.remove('processing');
+                    }, 600);
+                    
+                    selectAnswer(parseInt(this.dataset.value));
+                });
+            });
+        }
+
+        // Display current question
+        function displayQuestion() {
+            if (currentQuestionIndex >= questions.length) {
+                finishTest();
+                return;
+            }
+            
+            const question = questions[currentQuestionIndex];
+            document.getElementById('question-text').textContent = question.question;
+            
+            // Clear previous selections
+            document.querySelectorAll('.answer-btn').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+            
+            // Show previous answer if exists
+            if (answers[question.id]) {
+                const selectedBtn = document.querySelector(`[data-value="${answers[question.id].value}"]`);
+                if (selectedBtn) {
+                    selectedBtn.classList.add('selected');
+                }
+            }
+        }
+
+        // Select answer
+        function selectAnswer(value) {
+            // Prevent multiple calls
+            if (selectAnswer.isProcessing) return;
+            selectAnswer.isProcessing = true;
+            
+            const question = questions[currentQuestionIndex];
+            
+            // Validate question exists
+            if (!question || currentQuestionIndex >= questions.length) {
+                selectAnswer.isProcessing = false;
+                return;
+            }
+            
+            // Save answer
+            answers[question.id] = {
+                value: value,
+                category: question.category
+            };
+            
+            // Update UI
+            document.querySelectorAll('.answer-btn').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+            const selectedBtn = document.querySelector(`[data-value="${value}"]`);
+            if (selectedBtn) {
+                selectedBtn.classList.add('selected');
+            }
+            
+            // Save to localStorage
+            localStorage.setItem('abko_answers', JSON.stringify(answers));
+            
+            // Move to next question after a short delay
+            setTimeout(() => {
+                currentQuestionIndex++;
+                displayQuestion();
+                updateProgress();
+                selectAnswer.isProcessing = false;
+            }, 500);
+        }
+
+        // Update progress bar
+        function updateProgress() {
+            const progress = ((currentQuestionIndex) / questions.length) * 100;
+            document.getElementById('test-progress').style.width = progress + '%';
+            document.getElementById('progress-text').textContent = `${currentQuestionIndex} / ${questions.length}`;
+        }
+
+        // Finish test and show results
+        function finishTest() {
+            calculateResults();
+        }
+
+        // Calculate test results
+        function calculateResults() {
+            const categoryScores = {};
+            academicCategories.forEach(cat => {
+                categoryScores[cat.name] = { total: 0, count: 0 };
+            });
+
+            questions.forEach(q => {
+                const answer = answers[q.id];
+                if (answer !== undefined) {
+                    categoryScores[q.category].total += answer.value;
+                    categoryScores[q.category].count++;
+                }
+            });
+
+            const finalScores = {};
+            for (const categoryName in categoryScores) {
+                if (categoryScores[categoryName].count > 0) {
+                    finalScores[categoryName] = categoryScores[categoryName].total / categoryScores[categoryName].count;
+                } else {
+                    finalScores[categoryName] = 0;
+                }
+            }
+
+            // Calculate career matches
+            const careerMatches = careerData.map((career, index) => {
+                let totalMatch = 0;
+                let totalRequirements = 0;
+                let matchedRequirements = 0;
+
+                for (const reqCategory in career.requirements) {
+                    const requiredScore = career.requirements[reqCategory];
+                    const userScore = finalScores[reqCategory] || 0;
+
+                    totalRequirements += requiredScore;
+
+                    // Calculate weighted match for each category
+                    const match = Math.min(userScore, requiredScore) / requiredScore;
+                    totalMatch += match * requiredScore; // Weight by required score
+
+                    if (userScore >= requiredScore) {
+                        matchedRequirements++;
+                    }
+                }
+
+                const matchPercentage = totalRequirements > 0 ? (totalMatch / totalRequirements) * 100 : 0;
+
+                const resolvedId = (Array.isArray(careers) && (careers.find(c => c.name === career.name) || {}).id) || career.id || (index + 1);
+
+                return {
+                    id: resolvedId,
+                    ...career,
+                    matchPercentage: matchPercentage,
+                    matchedRequirementsCount: matchedRequirements,
+                    totalRequirementsCount: Object.keys(career.requirements).length
+                };
+            });
+
+            // Sort careers by match percentage in descending order
+            careerMatches.sort((a, b) => b.matchPercentage - a.matchPercentage);
+
+            console.log('calculateResults -> finalScores:', finalScores);
+            console.log('calculateResults -> top career matches (first 5):', careerMatches.slice(0,5).map(c=>({name:c.name,match:c.matchPercentage}))); 
+            displayResults(finalScores, careerMatches);
+        }
+
+        // Get top 3 areas
+        function getTopAreas(scores) {
+            if (!scores || typeof scores !== 'object') {
+                return [];
+            }
+            return Object.entries(scores)
+                .sort(([,a], [,b]) => b - a)
+                .slice(0, 3)
+                .map(([category, score]) => ({
+                    category,
+                    score: score.toFixed(1)
+                }));
+        }
+
+        // Get recommended careers
+        function getRecommendedCareers(userScores) {
+            const recommendations = [];
+            
+            careers.forEach(career => {
+                let totalMatch = 0;
+                let requirementCount = 0;
+                
+                Object.entries(career.requirements).forEach(([category, requiredScore]) => {
+                    const userScore = userScores[category] || 0;
+                    const match = Math.min(userScore / requiredScore, 1);
+                    totalMatch += match;
+                    requirementCount++;
+                });
+                
+                const matchPercentage = Math.round((totalMatch / requirementCount) * 100);
+                
+                if (matchPercentage >= 60) {
+                    recommendations.push({
+                        ...career,
+                        matchPercentage
+                    });
+                }
+            });
+            
+            return recommendations.sort((a, b) => b.matchPercentage - a.matchPercentage);
+        }
+
+        async function saveTestResults(finalScores, careerMatches) {
+            const recommendedCareers = (careerMatches || [])
+                .filter(career => career.matchPercentage >= 60)
+                .map(career => ({
+                    name: career.name,
+                    matchPercentage: Math.round(career.matchPercentage)
+                }));
+
+            // Try to save to Firestore when available
+            if (db && authUser) {
+                try {
+                    await db.collection('testResults').add({
+                        userId: authUser.uid,
+                        username: authUser.displayName || '',
+                        role: currentUserRole,
+                        categoryScores: finalScores,
+                        topAreas: getTopAreas(finalScores),
+                        recommendedCareers,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                } catch (e) {
+                    console.warn('Firestore save failed, will save locally:', e);
+                }
+            }
+
+            // Always persist a simplified result to localStorage (so local users see results)
+            try {
+                const localUser = (storage && storage.getCurrentUser && storage.getCurrentUser()) || {};
+                const studentId = authUser?.uid || localUser.id || 'anonymous';
+                const scores = Object.values(finalScores || {});
+                const overall = scores.length ? (scores.reduce((a,b)=>a+b,0)/scores.length) : 0;
+                const results = storage.getResults();
+                const entry = {
+                    id: 'r-' + Date.now() + '-' + Math.floor(Math.random()*9000+1000),
+                    studentId,
+                    testName: 'ABKÖ',
+                    score: Number(overall.toFixed(2)),
+                    date: new Date().toISOString(),
+                    details: {
+                        categoryScores: finalScores,
+                        recommendedCareers
+                    }
+                };
+                results.push(entry);
+                storage.saveResults(results);
+            } catch (e) {
+                console.error('Local saveTestResults error:', e);
+            }
+        }
+
+        let advisorChart = null;
+
+        function getReadableDate(timestamp) {
+            if (!timestamp) return '-';
+            if (timestamp.seconds) {
+                return new Date(timestamp.seconds * 1000).toLocaleDateString('tr-TR');
+            }
+            return new Date(timestamp).toLocaleDateString('tr-TR');
+        }
+
+        async function loadAdvisorDashboard() {
+            const listBody = document.getElementById('advisor-student-list');
+            if (!listBody) return;
+            listBody.innerHTML = '<tr><td colspan="3">Öğrenciler yükleniyor...</td></tr>';
+
+            // Local RBAC: advisor-student eşleşmesi (localStorage)
+            if (!db || !authUser) {
+                // localStorage modunda aktif danışman ile eşleşen öğrencileri bul
+                const advisors = (window.storage && window.storage.getAdvisors && window.storage.getAdvisors()) || [];
+                const students = (window.storage && window.storage.getStudents && window.storage.getStudents()) || [];
+                const currentAdvisor = advisors.find(a => a.username === getCurrentUser());
+                if (!currentAdvisor) {
+                    listBody.innerHTML = '<tr><td colspan="3">Danışman bulunamadı.</td></tr>';
+                    return;
+                }
+
+                // Ayır: atanmış ve atanmamış öğrenciler
+                const myStudents = students.filter(s => s.advisorId === currentAdvisor.id);
+                const unassigned = students.filter(s => !s.advisorId || s.advisorId === null);
+
+                listBody.innerHTML = '';
+
+                // Display assigned students first
+                if (myStudents.length === 0) {
+                    listBody.innerHTML = '<tr><td colspan="3">Atanmış öğrenci bulunamadı.</td></tr>';
+                } else {
+                    myStudents.forEach(student => {
+                        const results = (window.storage && window.storage.getResults && window.storage.getResults()) || [];
+                        const studentResults = results.filter(r => r.studentId === student.id);
+                        const latestResult = studentResults.length > 0 ? studentResults[studentResults.length-1] : null;
+                        const row = document.createElement('tr');
+                        row.classList.add('advisor-row');
+                        row.dataset.studentId = student.id;
+                        row.innerHTML = `
+                            <td>${student.username || 'Öğrenci'}</td>
+                            <td>${latestResult ? getReadableDate(latestResult.date) : '-'}</td>
+                            <td>${studentResults.length}</td>
+                        `;
+                        row.addEventListener('click', () => {
+                            document.querySelectorAll('.advisor-row').forEach(item => item.classList.remove('active'));
+                            row.classList.add('active');
+                            // Load details for this student (localStorage mode)
+                            try { loadAdvisorStudentDetails(student.id, student.username || 'Öğrenci'); } catch (e) { console.error('loadAdvisorStudentDetails failed', e); }
+                        });
+                        listBody.appendChild(row);
+                    });
+                }
+
+                // Then list unassigned students with an "Ata" button
+                if (unassigned.length > 0) {
+                    // separator row
+                    const sep = document.createElement('tr');
+                    sep.innerHTML = '<td colspan="3" style="padding-top:12px"><strong>Atanmamış Öğrenciler</strong></td>';
+                    listBody.appendChild(sep);
+
+                    unassigned.forEach(student => {
+                        const results = (window.storage && window.storage.getResults && window.storage.getResults()) || [];
+                        const studentResults = results.filter(r => r.studentId === student.id);
+                        const latestResult = studentResults.length > 0 ? studentResults[studentResults.length-1] : null;
+                        const row = document.createElement('tr');
+                        row.classList.add('advisor-row');
+                        row.dataset.studentId = student.id;
+                        row.innerHTML = `
+                            <td>${student.username || 'Öğrenci'}</td>
+                            <td>${latestResult ? getReadableDate(latestResult.date) : '-'}</td>
+                            <td><button class="btn btn-sm btn-primary assign-btn" data-student-id="${student.id}">Ata</button></td>
+                        `;
+                        listBody.appendChild(row);
+                    });
+
+                    // Attach assign handlers
+                    listBody.querySelectorAll('.assign-btn').forEach(btn => {
+                        btn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            const sid = btn.dataset.studentId;
+                            const idx = students.findIndex(s => s.id === sid);
+                            if (idx >= 0) {
+                                students[idx].advisorId = currentAdvisor.id;
+                                try { storage.saveStudents(students); } catch(err){ console.error('saveStudents failed', err); }
+                                // refresh view
+                                loadAdvisorDashboard();
+                            }
+                        });
+                    });
+                }
+                return;
+            }
+
+            // Firestore (orijinal) mod
+            try {
+                const snapshot = await db.collection('users')
+                    .where('advisorId', '==', authUser.uid)
+                    .get();
+                if (snapshot.empty) {
+                    listBody.innerHTML = '<tr><td colspan="3">Atanmış öğrenci bulunamadı.</td></tr>';
+                    return;
+                }
+                listBody.innerHTML = '';
+                const studentPromises = snapshot.docs.map(async doc => {
+                    const data = doc.data();
+                    const resultsSnapshot = await db.collection('testResults')
+                        .where('userId', '==', doc.id)
+                        .orderBy('createdAt', 'desc')
+                        .get();
+                    const latestResult = resultsSnapshot.docs[0]?.data();
+                    const row = document.createElement('tr');
+                    row.classList.add('advisor-row');
+                    row.dataset.studentId = doc.id;
+                    row.innerHTML = `
+                        <td>${data.username || 'Öğrenci'}</td>
+                        <td>${latestResult ? getReadableDate(latestResult.createdAt) : '-'}</td>
+                        <td>${resultsSnapshot.size}</td>
+                    `;
+                    row.addEventListener('click', () => {
+                        document.querySelectorAll('.advisor-row').forEach(item => item.classList.remove('active'));
+                        row.classList.add('active');
+                        loadAdvisorStudentDetails(doc.id, data.username || 'Öğrenci');
+                    });
+                    listBody.appendChild(row);
+                });
+                await Promise.all(studentPromises);
+            } catch (error) {
+                console.error('Advisor dashboard load error:', error);
+                listBody.innerHTML = '<tr><td colspan="3">Öğrenciler yüklenirken hata oluştu.</td></tr>';
+            }
+        }
+
+        async function loadAdvisorStudentDetails(studentId, studentName) {
+                    const nameEl = document.getElementById('advisor-student-name');
+                    const metaEl = document.getElementById('advisor-student-meta');
+                    const resultsBody = document.getElementById('advisor-results-list');
+                    if (nameEl) nameEl.textContent = studentName;
+                    if (metaEl) metaEl.textContent = 'Test sonuçları yükleniyor...';
+                    if (resultsBody) resultsBody.innerHTML = '<tr><td colspan="3">Sonuçlar yükleniyor...</td></tr>';
+
+                    // Local storage mode fallback
+                    if (!db || !authUser) {
+                        try {
+                            const allResults = (window.storage && window.storage.getResults && window.storage.getResults()) || [];
+                            const studentResults = allResults.filter(r => r.studentId === studentId).sort((a,b) => new Date(a.date) - new Date(b.date));
+                            if (!studentResults || studentResults.length === 0) {
+                                if (metaEl) metaEl.textContent = 'Öğrencinin henüz test sonucu yok.';
+                                if (resultsBody) resultsBody.innerHTML = '<tr><td colspan="3">Sonuç bulunamadı.</td></tr>';
+                                updateAdvisorChart([]);
+                                return;
+                            }
+                            if (metaEl) metaEl.textContent = `${studentResults.length} test sonucu bulundu.`;
+                            if (resultsBody) {
+                                resultsBody.innerHTML = studentResults.map(result => {
+                                    const scores = (result.details && result.details.categoryScores) || result.categoryScores || {};
+                                    const topAreasArr = getTopAreas(scores) || [];
+                                    const topAreas = topAreasArr.map(a => `${a.category} (${a.score})`).join(', ');
+                                    const recs = (result.details && result.details.recommendedCareers) || result.recommendedCareers || [];
+                                    const top3Names = (Array.isArray(recs) ? recs.slice(0,3).map(r => r.name || r) : []).join(', ') || '-';
+                                    const rid = result.id || result.entry && result.entry.id || result.resultId || '';
+                                    return `
+                                        <tr>
+                                            <td>${getReadableDate(result.date || result.createdAt)}</td>
+                                            <td>${topAreas || '-'}</td>
+                                            <td>${top3Names}</td>
+                                            <td><button class="btn btn-sm btn-danger result-delete-btn" data-result-id="${rid}">Sil</button></td>
+                                        </tr>
+                                    `;
+                                }).join('');
+
+                                // attach delete handlers for local results
+                                resultsBody.querySelectorAll('.result-delete-btn').forEach(btn => {
+                                    btn.addEventListener('click', (e) => {
+                                        e.stopPropagation();
+                                        const rid = btn.dataset.resultId;
+                                        if (!rid) return;
+                                        try {
+                                            const all = (window.storage && window.storage.getResults && window.storage.getResults()) || [];
+                                            const filtered = all.filter(r => r.id !== rid);
+                                            storage.saveResults(filtered);
+                                            loadAdvisorStudentDetails(studentId, studentName);
+                                        } catch (err) {
+                                            console.error('Local result delete failed', err);
+                                        }
+                                    });
+                                });
+                            }
+                            updateAdvisorChart(studentResults.map(r => ({ createdAt: r.date || r.createdAt, categoryScores: (r.details && r.details.categoryScores) || r.categoryScores || {} })));
+                            return;
+                        } catch (e) {
+                            console.error('Local advisor student detail error:', e);
+                            if (metaEl) metaEl.textContent = 'Sonuçlar yüklenirken hata oluştu.';
+                            if (resultsBody) resultsBody.innerHTML = '<tr><td colspan="3">Sonuçlar yüklenirken hata oluştu.</td></tr>';
+                            updateAdvisorChart([]);
+                            return;
+                        }
+                    }
+
+                    // Firestore (orijinal) mod
+                    try {
+                        const resultsSnapshot = await db.collection('testResults')
+                            .where('userId', '==', studentId)
+                            .orderBy('createdAt', 'asc')
+                            .get();
+                        if (resultsSnapshot.empty) {
+                            if (metaEl) metaEl.textContent = 'Öğrencinin henüz test sonucu yok.';
+                            if (resultsBody) resultsBody.innerHTML = '<tr><td colspan="3">Sonuç bulunamadı.</td></tr>';
+                            updateAdvisorChart([]);
+                            return;
+                        }
+                        const results = resultsSnapshot.docs.map(doc => ({ id: doc.id, ...(doc.data()) }));
+                        if (metaEl) metaEl.textContent = `${results.length} test sonucu bulundu.`;
+                        if (resultsBody) {
+                        resultsBody.innerHTML = results.map(result => {
+                            const topAreas = (result.topAreas || [])
+                                .map(area => `${area.category} (${area.score})`)
+                                .join(', ');
+                            const recs = result.recommendedCareers || [];
+                            const top3Names = (Array.isArray(recs) ? recs.slice(0,3).map(r => r.name || r).join(', ') : '-') || '-';
+                            return `
+                                <tr>
+                                    <td>${getReadableDate(result.createdAt)}</td>
+                                    <td>${topAreas || '-'}</td>
+                                    <td>${top3Names}</td>
+                                    <td><button class="btn btn-sm btn-danger result-delete-btn" data-result-id="${result.id}">Sil</button></td>
+                                </tr>
+                            `;
+                        }).join('');
+
+                        // attach delete handlers for firestore results
+                        resultsBody.querySelectorAll('.result-delete-btn').forEach(btn => {
+                            btn.addEventListener('click', async (e) => {
+                                e.stopPropagation();
+                                const rid = btn.dataset.resultId;
+                                if (!rid) return;
+                                try {
+                                    await db.collection('testResults').doc(rid).delete();
+                                    // reload
+                                    loadAdvisorStudentDetails(studentId, studentName);
+                                } catch (err) {
+                                    console.error('Firestore delete failed', err);
+                                }
+                            });
+                        });
+                    }
+                    updateAdvisorChart(results);
+                    } catch (error) {
+                        console.error('Advisor student detail error:', error);
+                        if (metaEl) metaEl.textContent = 'Sonuçlar yüklenirken hata oluştu.';
+                        if (resultsBody) resultsBody.innerHTML = '<tr><td colspan="3">Sonuçlar yüklenirken hata oluştu.</td></tr>';
+                        updateAdvisorChart([]);
+                    }
+        }
+
+        function updateAdvisorChart(results) {
+            const chartCanvas = document.getElementById('advisor-progress-chart');
+            if (!chartCanvas || typeof Chart === 'undefined') return;
+            if (advisorChart instanceof Chart) {
+                advisorChart.destroy();
+            }
+            const labels = results.map(result => getReadableDate(result.createdAt));
+            const dataPoints = results.map(result => {
+                const scores = Object.values(result.categoryScores || {});
+                const topScore = scores.length ? Math.max(...scores) : 0;
+                return Number.isFinite(topScore) ? Number(topScore.toFixed(2)) : 0;
+            });
+            advisorChart = new Chart(chartCanvas.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: 'En Yüksek Puan',
+                        data: dataPoints,
+                        borderColor: '#FFD700',
+                        backgroundColor: 'rgba(255, 215, 0, 0.2)',
+                        borderWidth: 2,
+                        pointRadius: 4,
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#FFFFFF'
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: '#FFFFFF' },
+                            grid: { color: 'rgba(255,255,255,0.1)' }
+                        },
+                        y: {
+                            ticks: { color: '#FFFFFF' },
+                            grid: { color: 'rgba(255,255,255,0.1)' },
+                            beginAtZero: true,
+                            max: 4
+                        }
+                    }
+                }
+            });
+        }
+
+        // Display results  
+        async function displayResults(finalScores, careerMatches) {
+            // Use existing page navigation system
+            showPage('results');
+            
+            // Store results globally for other functions to use
+            testResults = {
+                categoryScores: finalScores,
+                topAreas: getTopAreas(finalScores),
+                recommendedCareers: careerMatches.filter(career => career.matchPercentage >= 60)
+            };
+
+            // also expose on window for other modules that might check window.testResults
+            window.testResults = testResults;
+
+            console.log('displayResults called. finalScores:', finalScores);
+            console.log('displayResults -> recommendedCareers:', testResults.recommendedCareers);
+
+            saveTestResults(finalScores, careerMatches).catch(error => {
+                console.error('Test result save error:', error);
+            });
+
+            // 🔥 Danışman paneli için Firestore kaydı
+try {
+    await db.collection("results").add({
+        name: authUser?.displayName || "Öğrenci",
+        results: finalScores,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+} catch (e) {
+    console.error("Firestore save error:", e);
+}
+            // Update existing radar chart if it exists
+            setTimeout(() => {
+                const ctx = document.getElementById('radarChart');
+                if (ctx && typeof Chart !== 'undefined') {
+                    displayRadarChart(finalScores);
+                }
+                
+                // Update top areas if container exists
+                const topAreasContainer = document.getElementById('top-areas-list');
+                if (topAreasContainer) {
+                    displayTopAreas(finalScores);
+                }
+                
+                // Update career results if container exists  
+                const careerContainer = document.getElementById('career-results');
+                if (careerContainer) {
+                    displayCareerRecommendations(careerMatches);
+                }
+            }, 100);
+        }
+        
+        // Display existing results when navigating to results page
+        function displayExistingResults() {
+            if (!window.testResults || !window.testResults.categoryScores) {
+                return;
+            }
+            
+            const finalScores = window.testResults.categoryScores;
+            const recommendedCareers = window.testResults.recommendedCareers || [];
+            
+            // Update existing radar chart if it exists
+            setTimeout(() => {
+                const ctx = document.getElementById('radarChart');
+                if (ctx && typeof Chart !== 'undefined') {
+                    displayRadarChart(finalScores);
+                }
+                
+                // Update top areas if container exists
+                const topAreasContainer = document.getElementById('top-areas-list');
+                if (topAreasContainer) {
+                    displayTopAreas(finalScores);
+                }
+                
+                // Update career results if container exists  
+                const careerContainer = document.getElementById('career-results');
+                if (careerContainer) {
+                    displayCareerRecommendations(recommendedCareers);
+                }
+            }, 100);
+        }
+        
+        // Display radar chart with new data
+        function displayRadarChart(finalScores) {
+            const ctx = document.getElementById('radarChart');
+            if (!ctx) return;
+            
+            if (!finalScores || typeof finalScores !== 'object') {
+                return;
+            }
+            
+            const chartContext = ctx.getContext('2d');
+            
+            // Destroy existing chart if it exists
+            if (window.radarChart instanceof Chart) {
+                window.radarChart.destroy();
+            }
+
+            const labels = Object.keys(finalScores);
+            const data = Object.values(finalScores);
+
+            window.radarChart = new Chart(chartContext, {
+                type: 'radar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Puanlarınız',
+                        data: data,
+                        backgroundColor: 'rgba(255, 215, 0, 0.2)',
+                        borderColor: '#FFD700',
+                        borderWidth: 2,
+                        pointBackgroundColor: '#FFD700',
+                        pointBorderColor: '#FFA500',
+                        pointRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#FFFFFF'
+                            }
+                        }
+                    },
+                    scales: {
+                        r: {
+                            beginAtZero: true,
+                            max: 4,
+                            ticks: {
+                                color: '#FFFFFF',
+                                stepSize: 1
+                            },
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.2)'
+                            },
+                            pointLabels: {
+                                color: '#FFFFFF',
+                                font: {
+                                    size: 10
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Display top areas with new data
+        function displayTopAreas(finalScores) {
+            console.log('displayTopAreas called with:', finalScores);
+            const container = document.getElementById('top-areas-list');
+            if (!container) return;
+            
+            if (!finalScores || typeof finalScores !== 'object') {
+                container.innerHTML = '<p>No results available</p>';
+                return;
+            }
+            
+            container.innerHTML = '';
+            
+            const sortedScores = Object.entries(finalScores)
+                .sort(([, scoreA], [, scoreB]) => scoreB - scoreA)
+                .slice(0, 3);
+            
+            sortedScores.forEach(([category, score]) => {
+                const areaElement = document.createElement('div');
+                areaElement.className = 'area-item';
+                areaElement.innerHTML = `
+                    <div>
+                        <i class="fas fa-star me-2"></i>
+                        ${category}
+                    </div>
+                    <span class="area-score">${score.toFixed(2)}/4.0</span>
+                `;
+                container.appendChild(areaElement);
+            });
+        }
+        
+        // Display career recommendations with new data
+        function displayCareerRecommendations(careerMatches) {
+            console.log('displayCareerRecommendations called with:', careerMatches);
+            const container = document.getElementById('career-results');
+            if (!container) return;
+            
+            if (!careerMatches || !Array.isArray(careerMatches)) {
+                container.innerHTML = '<p>No career recommendations available</p>';
+                return;
+            }
+            
+            container.innerHTML = '';
+            
+            const recommendedCareers = careerMatches.filter(career => career.matchPercentage >= 60);
+            
+            if (recommendedCareers.length > 0) {
+                recommendedCareers.forEach((career, index) => {
+                    const careerCard = document.createElement('div');
+                    careerCard.className = 'career-card';
+                    const resolvedId = (typeof careers !== 'undefined' && Array.isArray(careers)) ? (careers.find(c => c.name === career.name) || {}).id || (career.id) : (career.id || index+1);
+                    careerCard.innerHTML = `
+                        <div class="career-header">
+                            <i class="fas fa-briefcase career-icon"></i>
+                            <span class="career-match">${Math.round(career.matchPercentage)}% Uyum</span>
+                        </div>
+                        <h4 class="career-title">${career.name}</h4>
+                        <p class="career-description">${career.description}</p>
+                        <div class="career-actions">
+                            <button class="btn-career btn-career-primary" data-career-action="details" data-career-id="${resolvedId}">
+                                <i class="fas fa-info-circle me-1"></i>Detayları Gör
+                            </button>
+                            <button class="btn-career btn-career-secondary" data-career-action="open-vr" data-career-id="${resolvedId}">
+                                <i class="fas fa-vr-cardboard me-1"></i>VR
+                            </button>
+                        </div>
+                    `;
+                    container.appendChild(careerCard);
+                });
+            } else {
+                container.innerHTML = `
+                    <div class="col-12 text-center">
+                        <div class="alert alert-info">
+                            <h5>Henüz uygun meslek bulunamadı</h5>
+                            <p>Puanlarınıza %60 ve üzeri uyum gösteren meslek bulunamadı. Testi tekrar çözmeyi deneyebilirsiniz.</p>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        // Load all careers for careers page
+        function loadAllCareers() {
+            const container = document.getElementById('all-careers');
+            container.innerHTML = '';
+            
+            careers.forEach(career => {
+                const careerCard = document.createElement('div');
+                careerCard.className = 'career-card';
+                careerCard.innerHTML = `
+                    <div class="career-header">
+                        <i class="${career.icon} career-icon"></i>
+                    </div>
+                    <h4 class="career-title">${career.name}</h4>
+                    <p class="career-description">${career.summary}</p>
+                    <div class="career-actions">
+                        <button class="btn-career btn-career-primary" data-career-action="details" data-career-id="${career.id}">
+                            <i class="fas fa-info-circle me-1"></i>Detayları Gör
+                        </button>
+                        <button class="btn-career btn-career-secondary" data-career-action="open-vr" data-career-id="${career.id}">
+                            <i class="fas fa-vr-cardboard me-1"></i>VR Deneyimi
+                        </button>
+                    </div>
+                `;
+                container.appendChild(careerCard);
+            });
+        }
+
+        // Load VR careers for VR explore page
+        function loadVRCareers() {
+            const container = document.getElementById('vr-career-list');
+            container.innerHTML = '';
+            
+            const availableCareers = testResults ? testResults.recommendedCareers : careers.slice(0, 4);
+            
+            availableCareers.forEach((career, index) => {
+                const vrCard = document.createElement('div');
+                vrCard.className = 'vr-career-card';
+                vrCard.dataset.careerAction = 'open-vr';
+                const resolvedId = (Array.isArray(careers) && (careers.find(c => c.name === career.name) || {}).id) || career.id || (index + 1);
+                vrCard.dataset.careerId = resolvedId;
+                vrCard.innerHTML = `
+                    <i class="${career.icon} vr-career-icon"></i>
+                    <h5 class="vr-career-title">${career.name}</h5>
+                    <p class="vr-career-subtitle">VR Simülasyonu</p>
+                `;
+                container.appendChild(vrCard);
+            });
+        }
+
+        // Show career detail modal
+        function showCareerDetail(careerId) {
+            console.log('showCareerDetail called with id', careerId);
+            const career = (Array.isArray(careers) && careers.find(c => Number(c.id) === Number(careerId))) || null;
+            if (!career) return;
+            
+            // Create modal
+            const modal = document.createElement('div');
+            modal.className = 'modal fade';
+            modal.innerHTML = `
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content" style="background: var(--gradient-card); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.2); color: var(--text-light);">
+                        <div class="modal-header" style="border-bottom: 1px solid rgba(255, 255, 255, 0.2);">
+                            <h5 class="modal-title">
+                                <i class="${career.icon} me-2" style="color: var(--accent-yellow);"></i>${career.name}
+                            </h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <h6 style="color: var(--accent-yellow);">Meslek Tanımı</h6>
+                            <p>${career.description}</p>
+                            
+                            <h6 style="color: var(--accent-yellow);">Gerekli Akademik Alanlar</h6>
+                            <div class="row g-2">
+                                ${Object.entries(career.requirements).map(([category, score]) => `
+                                    <div class="col-md-6">
+                                        <div class="d-flex justify-content-between align-items-center p-2" style="background: rgba(255, 255, 255, 0.1); border-radius: 10px;">
+                                            <span><i class="fas fa-star me-2"></i>${category}</span>
+                                            <span class="badge" style="background: var(--accent-yellow); color: var(--primary-purple);">${score}/4.0</span>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                            
+                            <div class="text-center mt-4">
+                                <button class="btn btn-primary btn-lg" data-career-action="open-vr-close" data-career-id="${career.id}">
+                                    <i class="fas fa-vr-cardboard me-2"></i>VR Simülasyonunu Başlat
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            const bsModal = new bootstrap.Modal(modal);
+            bsModal.show();
+            
+            // Remove modal from DOM when hidden
+            modal.addEventListener('hidden.bs.modal', function() {
+                document.body.removeChild(modal);
+            });
+        }
+
+        // Open VR simulation
+        function openVRSimulation(careerId) {
+            console.log('openVRSimulation called with id', careerId);
+            const career = (Array.isArray(careers) && careers.find(c => Number(c.id) === Number(careerId))) || null;
+            if (!career) {
+                console.warn('openVRSimulation: career not found for id', careerId);
+                return;
+            }
+            
+            currentSimulation = career;
+            
+            // Update simulation page content
+            document.getElementById('simulation-title').textContent = `${career.name.toUpperCase()} MESLEĞİ SİMÜLASYONU`;
+            
+            showPage('vr-simulation');
+            
+            // Initialize VR video player if career has VR video
+            if (career.hasVRVideo && career.vrVideoFile) {
+                setTimeout(() => {
+                    initVRVideoPlayer(career.vrVideoFile);
+                }, 500);
+            }
+        }
+
+        // Get career illustration
+        function getCareerIllustration(illustrationType) {
+            const illustrations = {
+                'doctor-office': `
+                    <div style="display: flex; align-items: center; justify-content: center; height: 100%; font-size: 4rem; color: var(--accent-yellow);">
+                        <i class="fas fa-user-md"></i>
+                        <i class="fas fa-stethoscope ms-3"></i>
+                        <i class="fas fa-heartbeat ms-3"></i>
+                    </div>
+                `,
+                'classroom': `
+                    <div style="display: flex; align-items: center; justify-content: center; height: 100%; font-size: 4rem; color: var(--accent-yellow);">
+                        <i class="fas fa-chalkboard-teacher"></i>
+                        <i class="fas fa-book ms-3"></i>
+                        <i class="fas fa-graduation-cap ms-3"></i>
+                    </div>
+                `,
+                'courtroom': `
+                    <div style="display: flex; align-items: center; justify-content: center; height: 100%; font-size: 4rem; color: var(--accent-yellow);">
+                        <i class="fas fa-balance-scale"></i>
+                        <i class="fas fa-gavel ms-3"></i>
+                        <i class="fas fa-landmark ms-3"></i>
+                    </div>
+                `,
+                'construction-site': `
+                    <div style="display: flex; align-items: center; justify-content: center; height: 100%; font-size: 4rem; color: var(--accent-yellow);">
+                        <i class="fas fa-hard-hat"></i>
+                        <i class="fas fa-tools ms-3"></i>
+                        <i class="fas fa-building ms-3"></i>
+                    </div>
+                `,
+                'software-office': `
+                    <div style="display: flex; align-items: center; justify-content: center; height: 100%; font-size: 4rem; color: var(--accent-yellow);">
+                        <i class="fas fa-laptop-code"></i>
+                        <i class="fas fa-mobile-alt ms-3"></i>
+                        <i class="fas fa-code ms-3"></i>
+                    </div>
+                `,
+                'art-studio': `
+                    <div style="display: flex; align-items: center; justify-content: center; height: 100%; font-size: 4rem; color: var(--accent-yellow);">
+                        <i class="fas fa-palette"></i>
+                        <i class="fas fa-paint-brush ms-3"></i>
+                        <i class="fas fa-image ms-3"></i>
+                    </div>
+                `,
+                'nurse-station': `
+                    <div style="display: flex; align-items: center; justify-content: center; height: 100%; font-size: 4rem; color: var(--accent-yellow);">
+                        <i class="fas fa-user-nurse"></i>
+                        <i class="fas fa-hospital ms-3"></i>
+                        <i class="fas fa-pills ms-3"></i>
+                    </div>
+                `,
+                'music-studio': `
+                    <div style="display: flex; align-items: center; justify-content: center; height: 100%; font-size: 4rem; color: var(--accent-yellow);">
+                        <i class="fas fa-music"></i>
+                        <i class="fas fa-guitar ms-3"></i>
+                        <i class="fas fa-microphone ms-3"></i>
+                    </div>
+                `,
+                'fashion-studio': `
+                    <div style="display: flex; align-items: center; justify-content: center; height: 100%; font-size: 4rem; color: var(--accent-yellow);">
+                        <i class="fas fa-tshirt"></i>
+                        <i class="fas fa-cut ms-3"></i>
+                        <i class="fas fa-magic ms-3"></i>
+                    </div>
+                `,
+                'business-office': `
+                    <div style="display: flex; align-items: center; justify-content: center; height: 100%; font-size: 4rem; color: var(--accent-yellow);">
+                        <i class="fas fa-briefcase"></i>
+                        <i class="fas fa-chart-line ms-3"></i>
+                        <i class="fas fa-handshake ms-3"></i>
+                    </div>
+                `,
+                'agricultural-field': `
+                    <div style="display: flex; align-items: center; justify-content: center; height: 100%; font-size: 4rem; color: var(--accent-yellow);">
+                        <i class="fas fa-seedling"></i>
+                        <i class="fas fa-tractor ms-3"></i>
+                        <i class="fas fa-leaf ms-3"></i>
+                    </div>
+                `,
+                'tourism-guide': `
+                    <div style="display: flex; align-items: center; justify-content: center; height: 100%; font-size: 4rem; color: var(--accent-yellow);">
+                        <i class="fas fa-map-marked-alt"></i>
+                        <i class="fas fa-camera ms-3"></i>
+                        <i class="fas fa-globe-americas ms-3"></i>
+                    </div>
+                `,
+                'electrical-lab': `
+                    <div style="display: flex; align-items: center; justify-content: center; height: 100%; font-size: 4rem; color: var(--accent-yellow);">
+                        <i class="fas fa-bolt"></i>
+                        <i class="fas fa-microchip ms-3"></i>
+                        <i class="fas fa-plug ms-3"></i>
+                    </div>
+                `,
+                'child-development': `
+                    <div style="display: flex; align-items: center; justify-content: center; height: 100%; font-size: 4rem; color: var(--accent-yellow);">
+                        <i class="fas fa-baby"></i>
+                        <i class="fas fa-child ms-3"></i>
+                        <i class="fas fa-puzzle-piece ms-3"></i>
+                    </div>
+                `,
+                'handicrafts-workshop': `
+                    <div style="display: flex; align-items: center; justify-content: center; height: 100%; font-size: 4rem; color: var(--accent-yellow);">
+                        <i class="fas fa-hands"></i>
+                        <i class="fas fa-scissors ms-3"></i>
+                        <i class="fas fa-gem ms-3"></i>
+                    </div>
+                `
+            };
+            
+            return illustrations[illustrationType] || illustrations['doctor-office'];
+        }
+
+        // Load answers from localStorage
+        function loadAnswersFromStorage() {
+            const saved = localStorage.getItem('abko_answers');
+            if (saved) {
+                answers = JSON.parse(saved);
+            }
+        }
+
+        // Fill randomly for testing
+        function fillRandomly() {
+            console.log('fillRandomly called');
+            for (let i = 0; i < questions.length; i++) {
+                const question = questions[i];
+                answers[question.id] = {
+                    value: Math.floor(Math.random() * 4) + 1,
+                    category: question.category
+                };
+            }
+            localStorage.setItem('abko_answers', JSON.stringify(answers));
+            finishTest();
+        }
+
+        // Reset test
+        function resetTest() {
+            console.log('resetTest called');
+            answers = {};
+            currentQuestionIndex = 0;
+            testResults = null;
+            localStorage.removeItem('abko_answers');
+            
+            if (document.getElementById('test-page').classList.contains('active')) {
+                initializeTest();
+            }
+        }
+
+        // Add scroll animations
+        function addScrollAnimations() {
+            const observerOptions = {
+                threshold: 0.1,
+                rootMargin: '0px 0px -50px 0px'
+            };
+            
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('visible');
+                    }
+                });
+            }, observerOptions);
+            
+            // Observe elements that should animate
+            document.querySelectorAll('.career-card, .action-card, .area-item').forEach(el => {
+                el.classList.add('fade-in');
+                observer.observe(el);
+            });
+        }
+
+        // Add video placeholder click handler
+        document.addEventListener('click', function(e) {
+            if (e.target.closest('.video-placeholder')) {
+                // Show VR experience modal
+                const modal = document.createElement('div');
+                modal.className = 'modal fade';
+                modal.innerHTML = `
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content" style="background: var(--gradient-card); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.2); color: var(--text-light);">
+                            <div class="modal-header" style="border-bottom: 1px solid rgba(255, 255, 255, 0.2);">
+                                <h5 class="modal-title">
+                                    <i class="fas fa-vr-cardboard me-2" style="color: var(--accent-yellow);"></i>VR Deneyimi
+                                </h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body text-center p-5">
+                                <div class="mb-4">
+                                    <i class="fas fa-vr-cardboard" style="font-size: 5rem; color: var(--accent-yellow);"></i>
+                                </div>
+                                <h4 class="mb-3">${currentSimulation ? currentSimulation.name : 'Meslek'} VR Deneyimi</h4>
+                                <p class="lead mb-4">Bu mesleği sanal gerçeklik ile deneyimlemeye hazırlanıyorsunuz!</p>
+                                <div class="alert alert-warning" style="background: rgba(255, 193, 7, 0.2); border: 1px solid rgba(255, 193, 7, 0.5); color: var(--text-light);">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                    <strong>Yakında:</strong> VR içeriği şu anda hazırlanmaktadır. Bu özellik gelecek güncellemede aktif olacaktır.
+                                </div>
+                                <div class="mt-4">
+                                    <p style="color: rgba(255, 255, 255, 0.7);">
+                                        <i class="fas fa-info-circle me-2"></i>
+                                        VR deneyimi için VR gözlük veya uyumlu cihaz gereklidir.
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="modal-footer" style="border-top: 1px solid rgba(255, 255, 255, 0.2);">
+                                <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Kapat</button>
+                                <button type="button" class="btn btn-primary" disabled>
+                                    <i class="fas fa-play me-2"></i>VR'ı Başlat (Yakında)
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(modal);
+                const bsModal = new bootstrap.Modal(modal);
+                bsModal.show();
+                
+                modal.addEventListener('hidden.bs.modal', function() {
+                    document.body.removeChild(modal);
+                });
+            }
+        });
+
+        // 360 VR Video Player Functions
+        function initVRVideoPlayer(videoFile) {
+            const container = document.getElementById('vr-video-container');
+            
+            // Check if it's a YouTube video
+            if (videoFile.includes('youtube.com') || videoFile.includes('youtu.be')) {
+                initYouTubeVR(videoFile);
+                return;
+            }
+            
+            // For local video files (if needed in future)
+            showVideoError('Video formatı desteklenmiyor. VR deneyimi için YouTube video kullanın.');
+        }
+
+        // YouTube VR Integration
+        function initYouTubeVR(videoUrl) {
+            const container = document.getElementById('vr-video-container');
+            const videoId = extractYouTubeId(videoUrl);
+            
+            console.log('360° VR Video başlatılıyor...');
+            console.log('Video ID:', videoId);
+            console.log('Original URL:', videoUrl);
+            
+            if (!videoId) {
+                showVideoError('Video yüklenemedi - Video ID bulunamadı');
+                return;
+            }
+            
+            container.innerHTML = `
+                <div class="vr-loading">
+                    <div class="spinner"></div>
+                    <p>360° VR Deneyimi Yükleniyor...</p>
+                    <p style="font-size: 0.9rem; opacity: 0.7;">İnternet bağlantısı kontrol ediliyor...</p>
+                </div>
+                <div id="vr-video-iframe">
+                    <iframe 
+                        width="100%" 
+                        height="100%" 
+                        src="https://www.youtube.com/embed/${videoId}?autoplay=1&enablejsapi=1&rel=0&modestbranding=1&origin=${window.location.origin}" 
+                        frameborder="0" 
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen" 
+                        allowfullscreen
+                        onload="onYouTubeIframeLoad()"
+                        onerror="onYouTubeIframeError()">
+                    </iframe>
+                </div>
+            `;
+            
+            console.log('YouTube iframe oluşturuldu');
+            
+            // Set timeout for loading
+            setTimeout(() => {
+                const loading = document.querySelector('.vr-loading');
+                if (loading) {
+                    loading.innerHTML = `
+                        <div class="spinner"></div>
+                        <p>Video yükleniyor...</p>
+                        <p style="font-size: 0.9rem; opacity: 0.7;">Biraz daha bekleyin...</p>
+                    `;
+                }
+            }, 3000);
+            
+            // Add event listeners
+            addVREventListeners();
+            
+            // Add ESC key listener for closing VR
+            document.addEventListener('keydown', handleVRKeyPress);
+        }
+
+        // YouTube iframe load success
+        function onYouTubeIframeLoad() {
+            console.log('YouTube iframe başarıyla yüklendi');
+            const loading = document.querySelector('.vr-loading');
+            if (loading) {
+                loading.remove();
+            }
+        }
+
+        // YouTube iframe load error
+        function onYouTubeIframeError() {
+            console.error('YouTube iframe yüklenirken hata oluştu');
+            showVideoError('YouTube video yüklenemedi. İnternet bağlantınızı kontrol edin.');
+        }
+
+        function extractYouTubeId(url) {
+            const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+            const match = url.match(regExp);
+            return (match && match[2].length === 11) ? match[2] : null;
+        }
+
+        function initThreeJSScene() {
+            const container = document.getElementById('vr-video-container');
+            
+            try {
+                // Check if Three.js is loaded
+                if (typeof THREE === 'undefined') {
+                    throw new Error('Three.js kütüphanesi yüklenemedi');
+                }
+                
+                // Create scene
+                vrScene = new THREE.Scene();
+                
+                // Create camera
+                vrCamera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
+                vrCamera.position.set(0, 0, 0.1);
+                
+                // Create renderer
+                vrRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+                vrRenderer.setSize(container.clientWidth, container.clientHeight);
+                vrRenderer.setClearColor(0x000000, 1);
+                container.appendChild(vrRenderer.domElement);
+                
+                // Check if OrbitControls is available
+                if (typeof THREE.OrbitControls === 'undefined') {
+                    throw new Error('OrbitControls yüklenemedi');
+                }
+                
+                // Create controls
+                vrControls = new THREE.OrbitControls(vrCamera, vrRenderer.domElement);
+                vrControls.enableZoom = true;
+                vrControls.enablePan = false;
+                vrControls.enableDamping = true;
+                vrControls.dampingFactor = 0.05;
+                vrControls.rotateSpeed = 0.5;
+                vrControls.maxDistance = 2;
+                vrControls.minDistance = 0.1;
+                
+                // Create multiple planes to simulate 360° effect
+                create360Effect();
+                
+                // Position camera inside the scene
+                vrCamera.position.set(0, 0, 0.1);
+                
+                // Handle window resize
+                window.addEventListener('resize', onWindowResize);
+                
+                console.log('360° effect scene başarıyla oluşturuldu');
+                
+            } catch (error) {
+                console.error('Three.js initialization error:', error);
+                showVideoError('Three.js kütüphanesi yüklenirken hata oluştu: ' + error.message);
+            }
+        }
+
+        function create360Effect() {
+            // Create video texture
+            videoTexture = new THREE.VideoTexture(videoElement);
+            videoTexture.minFilter = THREE.LinearFilter;
+            videoTexture.magFilter = THREE.LinearFilter;
+            videoTexture.format = THREE.RGBFormat;
+            
+            // Create material
+            videoMaterial = new THREE.MeshBasicMaterial({ map: videoTexture });
+            
+            // Create multiple planes to simulate 360° environment
+            const planeGeometry = new THREE.PlaneGeometry(2, 1.2);
+            
+            // Front wall
+            const frontWall = new THREE.Mesh(planeGeometry, videoMaterial);
+            frontWall.position.set(0, 0, -1);
+            vrScene.add(frontWall);
+            
+            // Back wall (same video, different position)
+            const backWall = new THREE.Mesh(planeGeometry, videoMaterial);
+            backWall.position.set(0, 0, 1);
+            backWall.rotation.y = Math.PI;
+            vrScene.add(backWall);
+            
+            // Left wall
+            const leftWall = new THREE.Mesh(planeGeometry, videoMaterial);
+            leftWall.position.set(-1, 0, 0);
+            leftWall.rotation.y = Math.PI / 2;
+            vrScene.add(leftWall);
+            
+            // Right wall
+            const rightWall = new THREE.Mesh(planeGeometry, videoMaterial);
+            rightWall.position.set(1, 0, 0);
+            rightWall.rotation.y = -Math.PI / 2;
+            vrScene.add(rightWall);
+            
+            // Ceiling
+            const ceiling = new THREE.Mesh(planeGeometry, videoMaterial);
+            ceiling.position.set(0, 0.6, 0);
+            ceiling.rotation.x = -Math.PI / 2;
+            vrScene.add(ceiling);
+            
+            // Floor
+            const floor = new THREE.Mesh(planeGeometry, videoMaterial);
+            floor.position.set(0, -0.6, 0);
+            floor.rotation.x = Math.PI / 2;
+            vrScene.add(floor);
+            
+            // Store references for cleanup
+            sphereMesh = [frontWall, backWall, leftWall, rightWall, ceiling, floor];
+        }
+
+        function addVREventListeners() {
+            // Video event listeners (if video element exists)
+            if (videoElement) {
+                videoElement.addEventListener('loadeddata', () => {
+                    console.log('Video yüklendi:', videoElement.videoWidth + 'x' + videoElement.videoHeight);
+                    
+                    // Remove loading state
+                    const loading = document.querySelector('.vr-loading');
+                    if (loading) {
+                        loading.remove();
+                    }
+                    
+                    // Auto-play video
+                    videoElement.play().then(() => {
+                        isPlaying = true;
+                        updatePlayPauseButton();
+                        console.log('Video oynatılıyor');
+                    }).catch(err => {
+                        console.log('Auto-play prevented:', err);
+                        // Manual play button will be available
+                    });
+                });
+                
+                videoElement.addEventListener('error', (e) => {
+                    console.error('Video loading error:', e);
+                    showVideoError('Video dosyası yüklenirken hata oluştu. ogretmenVR.mp4 dosyasının mevcut olduğundan emin olun.');
+                });
+                
+                videoElement.addEventListener('loadstart', () => {
+                    console.log('Video yüklenmeye başladı');
+                });
+                
+                videoElement.addEventListener('canplay', () => {
+                    console.log('Video oynatılmaya hazır');
+                });
+            }
+        }
+
+        // Handle VR key presses
+        function handleVRKeyPress(event) {
+            if (event.key === 'Escape') {
+                // If in fullscreen, exit fullscreen first
+                if (document.fullscreenElement) {
+                    document.exitFullscreen();
+                } else {
+                    // If not in fullscreen, hide VR experience
+                    hideVRExperience();
+                }
+            }
+        }
+
+        // Hide VR experience
+        function hideVRExperience() {
+            // Exit fullscreen if active
+            if (document.fullscreenElement) {
+                document.exitFullscreen();
+            }
+            
+            // Cleanup VR resources
+            cleanupVR();
+            
+            // Remove key listener
+            document.removeEventListener('keydown', handleVRKeyPress);
+            
+            // Navigate back to VR explore page
+            showPage('vr-explore');
+        }
+
+        // Close VR experience (kept for backward compatibility)
+        function closeVRExperience() {
+            hideVRExperience();
+        }
+
+        function togglePlayPause() {
+            try {
+                // For YouTube videos, we need to control the iframe
+                const iframe = document.querySelector('#vr-video-iframe iframe');
+                if (iframe && iframe.src) {
+                    // YouTube iframe API control
+                    const iframeSrc = iframe.src;
+                    if (isPlaying) {
+                        // Pause video by removing autoplay parameter
+                        iframe.src = iframeSrc.replace('autoplay=1', 'autoplay=0');
+                        isPlaying = false;
+                    } else {
+                        // Play video by adding autoplay parameter
+                        iframe.src = iframeSrc.replace('autoplay=0', 'autoplay=1');
+                        isPlaying = true;
+                    }
+                    updatePlayPauseButton();
+                } else if (videoElement && videoElement.play) {
+                    // For local video files
+                    if (isPlaying) {
+                        videoElement.pause();
+                        isPlaying = false;
+                    } else {
+                        videoElement.play().catch(err => {
+                            console.log('Video play error:', err);
+                        });
+                        isPlaying = true;
+                    }
+                    updatePlayPauseButton();
+                } else {
+                    // Fallback: just toggle the button state
+                    isPlaying = !isPlaying;
+                    updatePlayPauseButton();
+                    console.log('Video control not available, toggling button state only');
+                }
+            } catch (error) {
+                console.error('Toggle play/pause error:', error);
+                // Fallback: just toggle the button state
+                isPlaying = !isPlaying;
+                updatePlayPauseButton();
+            }
+        }
+
+        function updatePlayPauseButton() {
+            const btn = document.getElementById('play-pause-btn');
+            const icon = btn.querySelector('i');
+            
+            if (isPlaying) {
+                icon.className = 'fas fa-pause';
+                btn.innerHTML = '<i class="fas fa-pause"></i> Duraklat';
+            } else {
+                icon.className = 'fas fa-play';
+                btn.innerHTML = '<i class="fas fa-play"></i> Oynat';
+            }
+        }
+
+        function toggleFullscreen() {
+            const container = document.getElementById('vr-video-container');
+            const controls = document.querySelector('.vr-controls');
+            const instructions = document.querySelector('.vr-instructions');
+            
+            if (!document.fullscreenElement) {
+                container.requestFullscreen().then(() => {
+                    container.classList.add('fullscreen');
+                    
+                    // Hide controls and instructions in fullscreen
+                    if (controls) controls.style.display = 'none';
+                    if (instructions) instructions.style.display = 'none';
+                    
+                    onWindowResize();
+                }).catch(err => {
+                    console.log('Fullscreen error:', err);
+                });
+            } else {
+                document.exitFullscreen().then(() => {
+                    container.classList.remove('fullscreen');
+                    
+                    // Show controls and instructions when exiting fullscreen
+                    if (controls) controls.style.display = 'flex';
+                    if (instructions) instructions.style.display = 'block';
+                    
+                    onWindowResize();
+                });
+            }
+        }
+
+        function resetView() {
+            vrCamera.position.set(0, 0, 0.1);
+            vrCamera.rotation.set(0, 0, 0);
+            vrControls.reset();
+        }
+
+        function onWindowResize() {
+            const container = document.getElementById('vr-video-container');
+            if (!container) return;
+            
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+            
+            // Only resize Three.js components if they exist
+            if (vrCamera && vrRenderer) {
+                vrCamera.aspect = width / height;
+                vrCamera.updateProjectionMatrix();
+                vrRenderer.setSize(width, height);
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Only update controls if they exist
+            if (vrControls) {
+                vrControls.update();
+            }
+            
+            // Only render if all components exist
+            if (vrRenderer && vrScene && vrCamera) {
+                vrRenderer.render(vrScene, vrCamera);
+            }
+        }
+
+        function showVideoError(message = 'Video yüklenirken hata oluştu') {
+            const container = document.getElementById('vr-video-container');
+            container.innerHTML = `
+                <div class="vr-loading">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 3rem; color: #ff6b6b; margin-bottom: 15px;"></i>
+                    <h4>VR Video Yüklenemedi</h4>
+                    <p>${message}</p>
+                    <div class="alert alert-warning mt-3" style="background: rgba(255, 193, 7, 0.2); border: 1px solid rgba(255, 193, 7, 0.5); color: var(--text-light);">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Olası Nedenler:</strong>
+                        <ul class="mt-2 mb-0" style="text-align: left;">
+                            <li>İnternet bağlantısı sorunu</li>
+                            <li>YouTube video erişim kısıtlaması</li>
+                            <li>Tarayıcı uyumluluk sorunu</li>
+                        </ul>
+                    </div>
+                    <div class="mt-4">
+                        <button class="btn btn-primary me-2" data-action="reload">
+                            <i class="fas fa-redo me-2"></i>Tekrar Dene
+                        </button>
+                        <button class="btn btn-outline-light" data-action="hide-vr">
+                            <i class="fas fa-arrow-left me-2"></i>Geri Dön
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Cleanup VR resources when leaving page
+        function cleanupVR() {
+            // Cleanup YouTube iframe if exists
+            const iframe = document.querySelector('#vr-video-iframe iframe');
+            if (iframe) {
+                iframe.src = '';
+            }
+            
+            // Remove key listener
+            document.removeEventListener('keydown', handleVRKeyPress);
+            
+            // Stop video if playing
+            if (videoElement && !videoElement.paused) {
+                videoElement.pause();
+            }
+            
+            // Exit fullscreen if active
+            if (document.fullscreenElement) {
+                document.exitFullscreen();
+            }
+            
+            // Cleanup Three.js resources if they exist
+            if (vrRenderer) {
+                vrRenderer.dispose();
+                vrRenderer = null;
+            }
+            
+            if (vrScene) {
+                vrScene.clear();
+                vrScene = null;
+            }
+            
+            if (vrControls) {
+                vrControls.dispose();
+                vrControls = null;
+            }
+            
+            console.log('VR resources cleaned up');
+        }
+
+        // Update showPage function to cleanup VR when leaving
+        const originalShowPage = showPage;
+        showPage = function(pageId) {
+            // Cleanup VR if leaving VR simulation page
+            if (document.getElementById('vr-simulation-page').classList.contains('active')) {
+                cleanupVR();
+            }
+            
+            // Call original function
+            originalShowPage(pageId);
+        };
+        
+        document.addEventListener("DOMContentLoaded", () => {
+           document.querySelectorAll("[data-page]").forEach(el => {
+               el.addEventListener("click", (e) => {
+                   e.preventDefault();
+                   const page = el.getAttribute("data-page");
+                   showPage(page);
+           });
+       });
+   });
     </script>
 </body>
 </html>
