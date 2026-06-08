@@ -114,6 +114,7 @@
                         createdAt: new Date().toISOString()
                     };
                     storage.saveUser(student);
+                    storage.setCurrentUser({ id: student.id, role: 'student', username: student.username });
                     return { ok: true, message: 'Öğrenci hesabı oluşturuldu.', id: student.id, username: student.username };
                 } catch (error) {
                     console.error('Student creation error:', error);
@@ -137,6 +138,7 @@
                         createdAt: new Date().toISOString()
                     };
                     storage.saveUser(advisor);
+                    storage.setCurrentUser({ id: advisor.id, role: 'advisor', username: advisor.username });
                     return { ok: true, message: 'Danışman hesabı oluşturuldu.', id: advisor.id, username: advisor.username };
                 } catch (error) {
                     console.error('Advisor creation error:', error);
@@ -168,15 +170,15 @@
                     return { ok: false, message: 'Giriş yapılamadı.' };
                 }
             },
-            getCurrentUser: function() {
-                return storage.getCurrentUser();
-            },
             logout: function() {
                 storage.clearCurrentUser();
                 return { ok: true, message: 'Başarıyla çıkış yaptınız.' };
             },
             isAuthenticated: function() {
                 return this.getCurrentUser() !== null;
+            },
+            getCurrentUser: function() {
+                return storage.getCurrentUser();
             },
             getUserById: function(userId) {
                 const users = storage.getAllUsers();
@@ -192,7 +194,7 @@
             }
         };
         window.auth = auth;
-        console.log('✅ Auth system loaded:', window.auth ? 'OK' : 'FAILED');
+        console.log('✅ Auth system loaded');
     </script>
 </head>
 <body>
@@ -216,13 +218,13 @@
                         <i class="fas fa-user-circle me-2"></i>
                         <span id="nav-username"></span>
                     </span>
-                    <button class="btn btn-sm btn-outline-light me-2" id="nav-login-btn" type="button">
+                    <button class="btn btn-sm btn-outline-light me-2" id="nav-login-btn" type="button" onclick="showPage('auth')">
                         Giriş
                     </button>
-                    <button class="btn btn-sm btn-warning me-2" id="nav-register-btn" type="button">
+                    <button class="btn btn-sm btn-warning me-2" id="nav-register-btn" type="button" onclick="showPage('auth')">
                         Kayıt Ol
                     </button>
-                    <button class="btn btn-sm btn-outline-light d-none" id="nav-logout-btn" type="button">
+                    <button class="btn btn-sm btn-outline-light d-none" id="nav-logout-btn" type="button" onclick="logoutUser()">
                         Çıkış
                     </button>
                 </div>
@@ -243,7 +245,7 @@
                             <p class="hero-subtitle">
                                 Kendi yeteneklerine ve ilgi alanlarına en uygun meslekleri keşfetmeye hazır mısın?
                             </p>
-                            <button class="btn btn-primary btn-hero" data-page="action-select">
+                            <button class="btn btn-primary btn-hero" onclick="showPage('action-select')">
                                 <i class="fas fa-play me-2"></i>Hadi Başlayalım!
                             </button>
                         </div>
@@ -270,14 +272,14 @@
                         <h1 class="page-title">NE YAPMAK İSTERSİN?</h1>
                         
                         <div class="action-buttons">
-                            <div class="action-card" data-page="test">
+                            <div class="action-card" onclick="showPage('test')">
                                 <div class="action-icon">
                                     <i class="fas fa-clipboard-list"></i>
                                 </div>
                                 <h3>MESLEK TESTİNİ BAŞLAT</h3>
                             </div>
                             
-                            <div class="action-card" data-page="careers">
+                            <div class="action-card" onclick="showPage('careers')">
                                 <div class="action-icon">
                                     <i class="fas fa-vr-cardboard"></i>
                                 </div>
@@ -349,7 +351,7 @@
                     <div class="col-12">
                         <div class="results-header text-center mb-5">
                             <h1 class="page-title">TEST SONUÇLARINA GÖRE SANA UYGUN MESLEKLER</h1>
-                            <button class="btn btn-primary btn-lg mt-3" data-page="vr-explore">
+                            <button class="btn btn-primary btn-lg mt-3" onclick="showPage('vr-explore')">
                                 Bu meslekleri VR ile keşfet
                             </button>
                         </div>
@@ -375,10 +377,10 @@
                         </div>
                         
                         <div class="text-center mt-4">
-                            <button class="btn btn-outline-light me-3" data-page="test">
+                            <button class="btn btn-outline-light me-3" onclick="showPage('test')">
                                 <i class="fas fa-redo me-2"></i>Testi Tekrar Çöz
                             </button>
-                            <button class="btn btn-outline-light" data-page="home">
+                            <button class="btn btn-outline-light" onclick="showPage('home')">
                                 <i class="fas fa-home me-2"></i>Ana Sayfaya Dön
                             </button>
                         </div>
@@ -400,10 +402,10 @@
                         </div>
                         
                         <div class="mt-4">
-                            <button class="btn btn-outline-light me-3" data-page="results">
+                            <button class="btn btn-outline-light me-3" onclick="showPage('results')">
                                 <i class="fas fa-arrow-left me-2"></i>Sonuçlara Dön
                             </button>
-                            <button class="btn btn-outline-light" data-page="home">
+                            <button class="btn btn-outline-light" onclick="showPage('home')">
                                 <i class="fas fa-home me-2"></i>Ana Sayfaya Dön
                             </button>
                         </div>
@@ -434,10 +436,10 @@
                         </div>
                         
                         <div class="text-center mt-4">
-                            <button class="btn btn-warning me-3" data-page="vr-explore">
+                            <button class="btn btn-warning me-3" onclick="showPage('vr-explore')">
                                 <i class="fas fa-arrow-left me-2"></i>VR Ana Sayfaya Dön
                             </button>
-                            <button class="btn btn-warning" data-page="careers">
+                            <button class="btn btn-warning" onclick="showPage('careers')">
                                 <i class="fas fa-briefcase me-2"></i>Diğer Meslekleri Gör
                             </button>
                         </div>
@@ -461,7 +463,7 @@
                         </div>
                         
                         <div class="text-center mt-4">
-                            <button class="btn btn-outline-light" data-page="home">
+                            <button class="btn btn-outline-light" onclick="showPage('home')">
                                 <i class="fas fa-home me-2"></i>Ana Sayfaya Dön
                             </button>
                         </div>
@@ -508,11 +510,13 @@
                                 <p class="page-subtitle">Özel içeriklere erişmek için giriş yapın veya kayıt olun.</p>
                             </div>
                             <div class="auth-tabs">
-                                <button class="auth-tab active" data-auth-tab="login" type="button">Giriş Yap</button>
-                                <button class="auth-tab" data-auth-tab="register" type="button">Kayıt Ol</button>
+                                <button class="auth-tab active" data-auth-tab="login" type="button" onclick="showAuthTab('login')">Giriş Yap</button>
+                                <button class="auth-tab" data-auth-tab="register" type="button" onclick="showAuthTab('register')">Kayıt Ol</button>
                             </div>
                             <div class="auth-message" id="auth-message" role="status" aria-live="polite"></div>
-                            <form id="login-form" class="auth-form active">
+                            
+                            <!-- Login Form -->
+                            <form id="login-form" class="auth-form active" onsubmit="handleLogin(event)">
                                 <div class="mb-3">
                                     <label for="login-username" class="form-label">Kullanıcı Adı</label>
                                     <input type="text" class="form-control" id="login-username" required autocomplete="username">
@@ -523,7 +527,9 @@
                                 </div>
                                 <button class="btn btn-primary w-100" type="submit">Giriş Yap</button>
                             </form>
-                            <form id="register-form" class="auth-form">
+                            
+                            <!-- Register Form -->
+                            <form id="register-form" class="auth-form" onsubmit="handleRegister(event)">
                                 <div class="mb-3">
                                     <label for="register-username" class="form-label">Kullanıcı Adı</label>
                                     <input type="text" class="form-control" id="register-username" required autocomplete="username">
@@ -620,7 +626,126 @@
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
-    <!-- Custom JavaScript -->
-    <script src="main.js"></script>
+    <!-- Authentication & Navigation Functions -->
+    <script>
+        // Sayfa gösterme fonksiyonu
+        function showPage(pageId) {
+            // Tüm page-section elemanlarını gizle
+            document.querySelectorAll('.page-section').forEach(section => {
+                section.classList.remove('active');
+            });
+            
+            // İstenilen sayfayı göster
+            const page = document.getElementById(pageId + '-page');
+            if (page) {
+                page.classList.add('active');
+                window.scrollTo(0, 0);
+            }
+        }
+
+        // Auth tab değiştirme
+        function showAuthTab(tabName) {
+            document.querySelectorAll('.auth-tab').forEach(tab => {
+                tab.classList.toggle('active', tab.dataset.authTab === tabName);
+            });
+            document.querySelectorAll('.auth-form').forEach(form => {
+                form.classList.toggle('active', form.id === `${tabName}-form`);
+            });
+        }
+
+        // Auth mesajı göster
+        function setAuthMessage(message, type = 'info') {
+            const messageEl = document.getElementById('auth-message');
+            if (!messageEl) return;
+            messageEl.textContent = message;
+            messageEl.className = `auth-message ${type}`;
+        }
+
+        // Giriş işlemi
+        function handleLogin(event) {
+            event.preventDefault();
+            const username = document.getElementById('login-username').value.trim();
+            const password = document.getElementById('login-password').value;
+            
+            const result = window.auth.login(username, password);
+            
+            if (result.ok) {
+                setAuthMessage('✅ ' + result.message, 'success');
+                setTimeout(() => {
+                    document.getElementById('login-form').reset();
+                    updateAuthUI();
+                    showPage('home');
+                }, 1000);
+            } else {
+                setAuthMessage('❌ ' + result.message, 'error');
+            }
+        }
+
+        // Kayıt işlemi
+        function handleRegister(event) {
+            event.preventDefault();
+            const username = document.getElementById('register-username').value.trim();
+            const password = document.getElementById('register-password').value;
+            const isAdvisor = document.getElementById('register-is-advisor').checked;
+            
+            let result;
+            if (isAdvisor) {
+                const parts = username.split('.');
+                const firstName = parts[0] || username;
+                const lastName = parts[1] || '';
+                result = window.auth.createAdvisor(firstName, lastName, password);
+            } else {
+                const parts = username.split('.');
+                const firstName = parts[0] || username;
+                const lastName = parts[1] || '';
+                result = window.auth.createStudent(firstName, lastName, password);
+            }
+            
+            if (result.ok) {
+                setAuthMessage('✅ ' + result.message, 'success');
+                setTimeout(() => {
+                    document.getElementById('register-form').reset();
+                    updateAuthUI();
+                    showPage('home');
+                }, 1000);
+            } else {
+                setAuthMessage('❌ ' + result.message, 'error');
+            }
+        }
+
+        // Çıkış işlemi
+        function logoutUser() {
+            window.auth.logout();
+            updateAuthUI();
+            showPage('home');
+            setAuthMessage('', '');
+        }
+
+        // UI güncelle
+        function updateAuthUI() {
+            const loginBtn = document.getElementById('nav-login-btn');
+            const registerBtn = document.getElementById('nav-register-btn');
+            const logoutBtn = document.getElementById('nav-logout-btn');
+            const userBadge = document.getElementById('nav-user');
+            const usernameEl = document.getElementById('nav-username');
+            const advisorLink = document.getElementById('nav-advisor-link');
+            
+            const isLogged = window.auth.isAuthenticated();
+            const currentUser = window.auth.getCurrentUser();
+            
+            if (loginBtn) loginBtn.classList.toggle('d-none', isLogged);
+            if (registerBtn) registerBtn.classList.toggle('d-none', isLogged);
+            if (logoutBtn) logoutBtn.classList.toggle('d-none', !isLogged);
+            if (userBadge) userBadge.classList.toggle('d-none', !isLogged);
+            if (usernameEl && currentUser) usernameEl.textContent = currentUser.username;
+            if (advisorLink && currentUser) advisorLink.classList.toggle('d-none', currentUser.role !== 'advisor');
+        }
+
+        // Sayfa yüklendikçe UI güncelle
+        document.addEventListener('DOMContentLoaded', function() {
+            updateAuthUI();
+            console.log('✅ Page loaded - Auth UI updated');
+        });
+    </script>
 </body>
 </html>
